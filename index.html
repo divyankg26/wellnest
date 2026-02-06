@@ -5,6 +5,37 @@
 <title> NovaFix – Dashboard</title>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <style>
+/* Ensure html & body take full height */
+html, body {
+  height: 100%;
+  margin: 0;       /* remove default margins */
+  padding: 0;
+}
+
+/* ---------- SPLASH SCREEN ---------- */
+#splash {
+  position: fixed;           /* cover full screen */
+  inset: 0;                  /* top, bottom, left, right = 0 */
+  background: #a9a9a9;       /* darker grey (#a9a9a9 = darkgrey) */
+  display: flex;             /* flex centering */
+  justify-content: center;   /* horizontal center */
+  align-items: center;       /* vertical center */
+  z-index: 99999;            /* top layer */
+}
+
+#splash img {
+  width: 600px;              /* adjust size */
+  max-width: 90%;
+  animation: popIn 1.2s ease;
+  filter: drop-shadow(0 12px 30px rgba(0,0,0,0.7)); /* make image pop */
+}
+
+@keyframes popIn {
+  from { transform: scale(0.85); opacity: 0; }
+  to   { transform: scale(1); opacity: 1; }
+}
+
+
 /* ---------- VARIABLES ---------- */
 :root {
   --primary: #2e7d32;
@@ -164,6 +195,11 @@ ul li { color: var(--text); }
 </head>
 <body class="dark">
 
+<!-- SPLASH SCREEN -->
+<div id="splash">
+  <img src="https://gcdnb.pbrd.co/images/Odx6zppPNgX6.jpg?o=1" alt="NovaFix Splash">
+</div>
+
 <header>
   <h1> NovaFix</h1>
   <p>Mind • Body • Money • Music • Productivity</p>
@@ -304,86 +340,57 @@ ul li { color: var(--text); }
 </div>
 
 <script>
+// SPLASH SCREEN REMOVE
+setTimeout(() => {
+  const splash = document.getElementById("splash");
+  if (splash) splash.remove();
+}, 3000); // 3000ms = 3 seconds
+
+// Disable scroll while splash is active
+document.body.style.overflow = "hidden";
+
+setTimeout(() => {
+  const splash = document.getElementById("splash");
+  if (splash) splash.remove();
+  // Re-enable scrolling after splash disappears
+  document.body.style.overflow = "auto";
+}, 3000);
+
 // ---------- THEME ----------
 function toggleTheme(){document.body.classList.toggle("dark");}
 
 // ---------- AI ----------
 const moodHistory=[], waterHistory=[], sleepHistory=[];
-function aiChat() {
-  const input = document.getElementById("aiInput").value.trim();
-  if (!input) return;
+function aiChat(){
+  const input=document.getElementById("aiInput").value.trim();
+  if(!input) return;
+  const msg=input.toLowerCase();
+  let response="";
+  const leafLogo="🌿";
 
-  const msg = input.toLowerCase();
-  let response = "";
-  const leafLogo = "🌿";
-  const happyLogo = "😄";
-  const sadLogo = "😔";
-
-  // Greetings
-  const greetings = ["hi", "hello", "hey", "good morning", "good evening"];
-  if (greetings.some(g => msg.includes(g))) {
-    response = `Hey there! ${happyLogo} How's your day going so far?`;
-  }
-  // About AI
-  else if (msg.includes("who are you") || msg.includes("yourself")) {
-    response = `I am NovaFix AI ${leafLogo}, your wellness companion. I track your mood, sleep, water intake, and daily habits.`;
-  }
-  // Mood analysis
-  else if (msg.includes("mood") || msg.includes("feel")) {
-    if (moodHistory.length === 0) {
-      response = "I don't have any mood data yet. Start tracking your mood daily!";
+  if(msg.match(/hi|hello|hey/)) response=`I am NovaFix AI ${leafLogo}`;
+  else if(msg.match(/who are you/)) response=`I am NovaFix AI ${leafLogo}, your wellness companion.`;
+  else if(msg.match(/analyze|conclude|report/)){
+    if(moodHistory.length===0 && waterHistory.length===0 && sleepHistory.length===0){
+      response="No data recorded yet to analyze.";
     } else {
-      const lastMood = moodHistory[moodHistory.length - 1];
-      const moodTrend = moodHistory.length > 3 ? analyzeMoodTrend() : "";
-      response = `Your last mood was: ${lastMood.value} at ${lastMood.time}. ${moodTrend}`;
+      response="Here is your latest wellness data analysis:<br>";
+      if(sleepHistory.length) response+=`Sleep: Last ${sleepHistory[sleepHistory.length-1]} hrs<br>`;
+      if(waterHistory.length) response+=`Water: Last ${waterHistory[waterHistory.length-1]} glasses<br>`;
+      if(moodHistory.length){
+        const lastMood=moodHistory[moodHistory.length-1];
+        response+=`Mood: Last ${lastMood.value} at ${lastMood.time}<br>`;
+      }
+      response+="Tip: Keep a consistent routine, stay hydrated, and track mood for better insight.";
     }
-  }
-  // Sleep advice
-  else if (msg.includes("sleep") || msg.includes("rest")) {
-    if (sleepHistory.length === 0) {
-      response = "You haven't logged any sleep yet. Try to track your hours for better insights!";
-    } else {
-      const lastSleep = sleepHistory[sleepHistory.length - 1];
-      response = `Your last sleep was ${lastSleep} hrs. ${lastSleep < 7 ? "Consider getting more rest tonight! 💤" : "Great job maintaining enough sleep! 😄"}`;
-    }
-  }
-  // Water advice
-  else if (msg.includes("water") || msg.includes("hydration")) {
-    if (waterHistory.length === 0) {
-      response = "You haven't logged any water intake. Stay hydrated! 💧";
-    } else {
-      const totalWater = waterHistory.reduce((sum, val) => sum + val, 0);
-      response = `So far today, you've had ${totalWater} glasses of water. ${waterGoal > 0 && totalWater < waterGoal ? "Keep going to reach your goal!" : "Excellent, keep it up!"}`;
-    }
-  }
-  // General wellness advice
-  else if (msg.includes("advice") || msg.includes("tip") || msg.includes("help")) {
-    response = "🌟 Wellness Tip: Keep a consistent routine, track your habits, stay hydrated, sleep well, and reflect on your mood daily. Small steps build big results!";
-  }
-  // Catch-all
-  else {
-    response = "I'm analyzing your input. Could you tell me more about your mood, sleep, water intake, or daily habits?";
-  }
-
-  // Random friendly emoji response
-  const emojis = ["🌱", "😄", "💧", "💤", "💪", "✨"];
-  response += " " + emojis[Math.floor(Math.random() * emojis.length)];
-
-  // Display in chat
-  const chat = document.getElementById("chat");
-  chat.innerHTML += `<p><b>You:</b> ${input}</p><p><b>AI:</b><br>${response}</p>`;
-  chat.scrollTop = chat.scrollHeight;
-  document.getElementById("aiInput").value = "";
-}
-
-// Helper: analyze mood trend
-function analyzeMoodTrend() {
-  const lastThree = moodHistory.slice(-3).map(m => m.value);
-  if (lastThree.every(m => m === lastThree[0])) {
-    return `Your mood has been consistently "${lastThree[0]}".`;
   } else {
-    return `Your recent mood varies: ${lastThree.join(", ")}.`;
+    response="I'm analyzing your input. Tell me more about your energy, mood, or wellness concern.";
   }
+
+  const chat=document.getElementById("chat");
+  chat.innerHTML+=`<p><b>You:</b> ${input}</p><p><b>AI:</b><br>${response}</p>`;
+  chat.scrollTop=chat.scrollHeight;
+  document.getElementById("aiInput").value="";
 }
 
 // ---------- REMINDERS ----------
@@ -415,14 +422,42 @@ function addReminder(){
 
 // ---------- TASKS ----------
 function addTask(){
-  const task=document.getElementById("task").value.trim();
-  if(!task) return;
-  const ul=document.getElementById("taskList");
-  const li=document.createElement("li");
-  li.textContent="✔ "+task;
+  const taskText = document.getElementById("task").value.trim();
+  if(!taskText) return;
+
+  const ul = document.getElementById("taskList");
+  const li = document.createElement("li");
+
+  const span = document.createElement("span");
+  span.textContent = taskText;
+
+  const editBtn = document.createElement("button");
+  editBtn.textContent = "✏️";
+  editBtn.className = "task-btn";
+  editBtn.onclick = () => {
+    const newText = prompt("Edit task:", span.textContent);
+    if(newText !== null && newText.trim() !== "") {
+      span.textContent = newText.trim();
+    }
+  };
+
+  const delBtn = document.createElement("button");
+  delBtn.textContent = "🗑️";
+  delBtn.className = "task-btn";
+  delBtn.onclick = () => {
+    if(confirm("Delete this task?")) {
+      ul.removeChild(li);
+    }
+  };
+
+  li.appendChild(span);
+  li.appendChild(editBtn);
+  li.appendChild(delBtn);
+
   ul.appendChild(li);
-  document.getElementById("task").value="";
+  document.getElementById("task").value = "";
 }
+
 
 // ---------- FINANCE ----------
 function calculateFinance(){
