@@ -6,7 +6,6 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
 <style>
-/* ---------- ROOT ---------- */
 :root{
   --waveA:#2196f3;
   --waveB:#ff9800;
@@ -16,7 +15,6 @@
   --text:#fff;
 }
 
-/* ---------- BASE ---------- */
 html,body{
   margin:0;
   height:100%;
@@ -37,7 +35,7 @@ body{
   100%{background-position:0% 50%}
 }
 
-/* ---------- SPLASH ---------- */
+/* SPLASH */
 #splash{
   position:fixed;
   inset:0;
@@ -63,7 +61,52 @@ body{
   to{opacity:1;transform:scale(1)}
 }
 
-/* ---------- HEADER ---------- */
+/* SIGN-IN / SIGN-UP MODAL */
+#signInModal {
+  display: none; 
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.85);
+  justify-content: center;
+  align-items: center;
+  z-index: 10000;
+}
+.modal-content {
+  background: rgba(255,255,255,0.15);
+  backdrop-filter: blur(14px);
+  padding: 40px;
+  border-radius: 20px;
+  text-align: center;
+  width: 90%;
+  max-width: 400px;
+  color: #fff;
+  box-shadow: 0 12px 30px rgba(0,0,0,0.3);
+}
+.modal-content input {
+  width: 100%;
+  margin: 10px 0;
+  padding: 12px;
+  border-radius: 12px;
+  border: none;
+  background: rgba(255,255,255,0.22);
+  color: #fff;
+  font-size: 16px;
+}
+.modal-content button {
+  width: 100%;
+  padding: 12px;
+  margin-top: 10px;
+  border-radius: 12px;
+  border: none;
+  cursor: pointer;
+  background: linear-gradient(135deg,var(--primary),var(--accent));
+  color: #fff;
+  font-weight: bold;
+  font-size: 16px;
+}
+.modal-content p {margin-top: 10px; font-size: 14px; cursor: pointer;}
+
+/* HEADER */
 header{
   text-align:center;
   padding:30px;
@@ -71,19 +114,34 @@ header{
   backdrop-filter:blur(14px);
   border-radius:0 0 20px 20px;
   box-shadow:0 12px 30px rgba(0,0,0,.3);
+  position:relative;
 }
 header h1{margin:0;color:var(--primary)}
 header p{margin:6px 0 0}
+#signOutBtn{
+  position:absolute;
+  right:20px;
+  top:30px;
+  padding:8px 14px;
+  border:none;
+  border-radius:12px;
+  cursor:pointer;
+  background: linear-gradient(135deg,var(--accent),var(--primary));
+  color:#fff;
+  font-weight:bold;
+  display:none;
+}
 
-/* ---------- DASHBOARD ---------- */
+/* DASHBOARD */
 .dashboard{
   display:grid;
   grid-template-columns:repeat(auto-fit,minmax(300px,1fr));
   gap:24px;
   padding:24px;
+  display:none;
 }
 
-/* ---------- CARD ---------- */
+/* CARD */
 .card{
   background:var(--glass);
   backdrop-filter:blur(16px);
@@ -127,25 +185,38 @@ button{
   margin-top:8px;
 }
 
-/* ---------- SCROLL ---------- */
 ::-webkit-scrollbar{width:6px}
 ::-webkit-scrollbar-thumb{background:var(--primary);border-radius:3px}
 </style>
 </head>
-
 <body>
 
+<!-- SPLASH -->
 <div id="splash">
   <img src="https://gcdnb.pbrd.co/images/T3DLjTXN0F9N.jpg?o=1">
+</div>
+
+<!-- SIGN-IN / SIGN-UP MODAL -->
+<div id="signInModal">
+  <div class="modal-content">
+    <h2 id="modalTitle">Welcome to NovaFix 🌟</h2>
+    <input id="usernameInput" placeholder="Enter username">
+    <input id="passwordInput" type="password" placeholder="Enter password">
+    <button id="actionButton" onclick="handleAuth()">Sign In</button>
+    <p onclick="toggleAuth()"><span id="toggleText">Don't have an account? Sign Up</span></p>
+    <p id="signInError" style="color:red; display:none;">Error message here!</p>
+  </div>
 </div>
 
 <header>
   <h1>NovaFix</h1>
   <p>Mind • Body • Money • Music • Productivity</p>
+  <button id="signOutBtn" onclick="signOut()">Sign Out</button>
 </header>
 
 <div class="dashboard">
 
+<!-- AI Companion -->
 <div class="card">
 <h2>🤖 AI Companion</h2>
 <div class="chat" id="chat"></div>
@@ -155,6 +226,7 @@ button{
 </div>
 </div>
 
+<!-- Reminders -->
 <div class="card">
 <h2>⏰ Reminders</h2>
 <div class="input-group">
@@ -165,6 +237,7 @@ button{
 <ul id="reminders"></ul>
 </div>
 
+<!-- Tasks -->
 <div class="card">
 <h2>📊 Productivity</h2>
 <div class="input-group">
@@ -174,6 +247,7 @@ button{
 <ul id="taskList"></ul>
 </div>
 
+<!-- Grocery Finance -->
 <div class="card">
 <h2>🧾 Grocery Financing</h2>
 <input id="gCost" placeholder="Monthly ₹">
@@ -183,6 +257,7 @@ button{
 <p id="financeResult"></p>
 </div>
 
+<!-- Mood Tracker -->
 <div class="card">
 <h2>🧘 Mood Tracker</h2>
 <select id="mood">
@@ -194,6 +269,7 @@ button{
 <div id="moodLogs"></div>
 </div>
 
+<!-- Water -->
 <div class="card">
 <h2>💧 Water Intake</h2>
 <input id="waterGoalInput" placeholder="Daily goal">
@@ -203,6 +279,7 @@ button{
 <p id="waterProgress"></p>
 </div>
 
+<!-- Sleep -->
 <div class="card">
 <h2>💤 Sleep</h2>
 <input id="sleepInput" placeholder="Hours">
@@ -210,11 +287,13 @@ button{
 <p id="sleepResult"></p>
 </div>
 
+<!-- Wellness Music -->
 <div class="card">
 <h2>🎵 Wellness Music</h2>
 <iframe style="border-radius:14px" src="https://open.spotify.com/embed/playlist/0Gwjm4uWLCSE7ZIiY6dK2X" width="100%" height="190"></iframe>
 </div>
 
+<!-- Time Traveller Mirror -->
 <div class="card">
 <h2>🪞 Time Traveller Mirror</h2>
 <input id="futureTask" placeholder="Enter goal">
@@ -222,12 +301,14 @@ button{
 <div id="timeMirror"></div>
 </div>
 
+<!-- Motivational Quotes -->
 <div class="card">
 <h2>💡 Motivational Quotes</h2>
 <p id="quoteDisplay"></p>
 <button onclick="newQuote()">Inspire Me</button>
 </div>
 
+<!-- Gratitude Journal -->
 <div class="card">
 <h2>🙏 Gratitude Journal</h2>
 <textarea id="gratitudeInput" rows="3"></textarea>
@@ -235,6 +316,7 @@ button{
 <div id="gratitudeLogs"></div>
 </div>
 
+<!-- Daily Challenge -->
 <div class="card">
 <h2>🏆 Daily Challenge</h2>
 <p id="dailyChallenge"></p>
@@ -245,88 +327,112 @@ button{
 </div>
 
 <script>
-/* SPLASH */
-document.body.style.overflow="hidden";
-setTimeout(()=>{
+// ---------- SPLASH ----------
+const splash = document.getElementById("splash");
+const signInModal = document.getElementById("signInModal");
+const dashboard = document.querySelector(".dashboard");
+const signOutBtn = document.getElementById("signOutBtn");
+document.body.style.overflow = "hidden";
+
+setTimeout(() => {
   splash.classList.add("hide");
-  setTimeout(()=>{splash.remove();document.body.style.overflow="auto";},1000);
+  setTimeout(() => {
+    splash.remove();
+    document.body.style.overflow = "auto";
+    const savedUser = localStorage.getItem("novafixUser");
+    if(savedUser){
+      dashboard.style.display="grid";
+      signOutBtn.style.display="block";
+    } else {
+      signInModal.style.display="flex";
+    }
+  },1000);
 },3000);
 
-/* COLOR WAVES */
-const waves=[
-["#2196f3","#ff9800"],
-["#9c27b0","#03a9f4"],
-["#ff5722","#4caf50"],
-["#3f51b5","#e91e63"],
-["#009688","#ffc107"]
-];
-let w=0;
-function updateWave(){
-  document.documentElement.style.setProperty("--waveA",waves[w][0]);
-  document.documentElement.style.setProperty("--waveB",waves[w][1]);
-  document.documentElement.style.setProperty("--primary",waves[w][0]);
-  document.documentElement.style.setProperty("--accent",waves[w][1]);
-  w=(w+1)%waves.length;
+// ---------- SIGN-IN / SIGN-UP ----------
+let authMode="signin";
+function toggleAuth(){
+  authMode=authMode==="signin"?"signup":"signin";
+  const title=document.getElementById("modalTitle");
+  const button=document.getElementById("actionButton");
+  const toggleText=document.getElementById("toggleText");
+  const error=document.getElementById("signInError");
+  error.style.display="none";
+  if(authMode==="signup"){
+    title.innerText="Create a NovaFix Account 🌟";
+    button.innerText="Sign Up";
+    toggleText.innerText="Already have an account? Sign In";
+  } else {
+    title.innerText="Welcome to NovaFix 🌟";
+    button.innerText="Sign In";
+    toggleText.innerText="Don't have an account? Sign Up";
+  }
 }
-updateWave();
-setInterval(updateWave,8000);
 
-/* AI */
+function handleAuth(){
+  const username=usernameInput.value.trim();
+  const password=passwordInput.value.trim();
+  const error=document.getElementById("signInError");
+  if(!username||!password){error.style.display="block";error.innerText="Username or password cannot be empty!";return;}
+  const users=JSON.parse(localStorage.getItem("novafixUsers")||"{}");
+  if(authMode==="signup"){
+    if(users[username]){error.style.display="block";error.innerText="Username already exists!";return;}
+    users[username]=password;
+    localStorage.setItem("novafixUsers",JSON.stringify(users));
+    localStorage.setItem("novafixUser",username);
+    loginSuccess(username);
+  } else {
+    if(!users[username]||users[username]!==password){error.style.display="block";error.innerText="Incorrect username or password!";return;}
+    localStorage.setItem("novafixUser",username);
+    loginSuccess(username);
+  }
+}
+
+function loginSuccess(username){
+  signInModal.style.display="none";
+  dashboard.style.display="grid";
+  signOutBtn.style.display="block";
+  alert(`Welcome, ${username}! 🌟`);
+}
+
+function signOut(){
+  localStorage.removeItem("novafixUser");
+  signInModal.style.display="flex";
+  dashboard.style.display="none";
+  signOutBtn.style.display="none";
+  authMode="signin";
+  toggleAuth();
+  alert("You have been signed out!");
+}
+
+// ---------- DASHBOARD JS ----------
 const moodHistory=[],waterHistory=[],sleepHistory=[];
+
+// AI Companion
 function aiChat(){
   const input = aiInput.value.trim();
   if(!input) return;
-
-  const msg = input.toLowerCase();
-  let response = "";
-
-  if(msg.match(/hi|hello|hey/)){
-    response = "Hey there! What's up? 😊";
-  }
-  else if(msg.match(/who are you/)){
-    response = "I am your NovaFix wellness companion 🌱";
-  }
+  let msg=input.toLowerCase();
+  let response="";
+  if(msg.match(/hi|hello|hey/)) response="Hey there! What's up? 😊";
+  else if(msg.match(/who are you/)) response="I am your NovaFix wellness companion 🌱";
   else if(msg.match(/analyze|analysis|report|conclude/)){
-    if(
-      moodHistory.length === 0 &&
-      waterHistory.length === 0 &&
-      sleepHistory.length === 0
-    ){
-      response = "You haven’t logged enough data yet for analysis. Start with mood, water, or sleep 🌱";
+    if(moodHistory.length===0&&waterHistory.length===0&&sleepHistory.length===0){
+      response="You haven’t logged enough data yet for analysis. Start with mood, water, or sleep 🌱";
     } else {
-      response = "📊 <b>Your Wellness Analysis</b><br>";
-
-      if(sleepHistory.length){
-        const lastSleep = sleepHistory[sleepHistory.length - 1];
-        response += `💤 Sleep: ${lastSleep} hrs<br>`;
-      }
-
-      if(waterHistory.length){
-        const totalWater = waterHistory.reduce((a,b)=>a+b,0);
-        response += `💧 Water today: ${totalWater} glasses<br>`;
-      }
-
-      if(moodHistory.length){
-        const lastMood = moodHistory[moodHistory.length - 1];
-        response += `🧘 Mood: ${lastMood}<br>`;
-      }
-
-      response += "<br>✨ Tip: Consistency beats intensity. Hydrate well, protect sleep, and track mood daily.";
+      response="📊 <b>Your Wellness Analysis</b><br>";
+      if(sleepHistory.length){const lastSleep=sleepHistory[sleepHistory.length-1];response+=`💤 Sleep: ${lastSleep} hrs<br>`;}
+      if(waterHistory.length){const totalWater=waterHistory.reduce((a,b)=>a+b,0);response+=`💧 Water today: ${totalWater} glasses<br>`;}
+      if(moodHistory.length){const lastMood=moodHistory[moodHistory.length-1];response+=`🧘 Mood: ${lastMood}<br>`;}
+      response+="<br>✨ Tip: Consistency beats intensity. Hydrate well, protect sleep, and track mood daily.";
     }
-  }
-  else{
-    response = "I’m listening 🌿 Tell me about your mood, energy, or type *analyze* to see your wellness report.";
-  }
-
-  chat.innerHTML += `
-    <p><b>You:</b> ${input}</p>
-    <p><b>AI:</b><br>${response}</p>
-  `;
-  chat.scrollTop = chat.scrollHeight;
-  aiInput.value = "";
+  } else response="I’m listening 🌿 Tell me about your mood, energy, or type *analyze* to see your wellness report.";
+  chat.innerHTML+=`<p><b>You:</b> ${input}</p><p><b>AI:</b><br>${response}</p>`;
+  chat.scrollTop=chat.scrollHeight;
+  aiInput.value="";
 }
 
-/* REMINDER */
+// Reminders
 function addReminder(){
   const t=reminderText.value.trim();
   const m=+reminderMinutes.value;
@@ -335,99 +441,55 @@ function addReminder(){
   reminders.appendChild(li);
   let s=m*60;
   const i=setInterval(()=>{
-    if(s<=0){
-      clearInterval(i);
-      li.textContent=`${t} – Time's up!`;
-      new Audio("https://image2url.com/r2/default/audio/1770452153508-4fc64f7a-25c4-4054-b3e4-7f9d7c20da83.mp3").play();
-      return;
-    }
-    li.textContent=`${t} – ${Math.floor(s/60)}m ${s%60}s`;
-    s--;
+    if(s<=0){clearInterval(i);li.textContent=`${t} – Time's up!`;return;}
+    li.textContent=`${t} – ${Math.floor(s/60)}m ${s%60}s`;s--;
   },1000);
   reminderText.value="";reminderMinutes.value="";
 }
 
-/* TASKS */
+// Tasks
 function addTask(){
   const t=task.value.trim();
   if(!t)return;
   const li=document.createElement("li");
-  const span=document.createElement("span");
-  span.textContent=t;
-  const e=document.createElement("button");e.textContent="✏️";
-  e.onclick=()=>{const n=prompt("Edit task",span.textContent);if(n)span.textContent=n};
+  const span=document.createElement("span");span.textContent=t;
+  const e=document.createElement("button");e.textContent="✏️";e.onclick=()=>{const n=prompt("Edit task",span.textContent);if(n)span.textContent=n};
   const d=document.createElement("button");d.textContent="🗑️";d.onclick=()=>li.remove();
   li.append(span,e,d);taskList.appendChild(li);task.value="";
 }
 
-/* FINANCE */
+// Finance
 function calculateFinance(){
   const total=gCost.value*gMonths.value*(1+buffer.value/100);
   financeResult.innerText=`Total ₹${total.toFixed(0)}`;
 }
 
-/* MOOD */
-function saveMood(){
-  moodLogs.innerHTML+=`<div>${new Date().toLocaleTimeString()} - ${mood.value}</div>`;
-}
+// Mood
+function saveMood(){moodLogs.innerHTML+=`<div>${new Date().toLocaleTimeString()} - ${mood.value}</div>`;moodHistory.push(mood.value);}
 
-/* WATER */
+// Water
 let waterGoal=0;
 function setWaterGoal(){waterGoal=+waterGoalInput.value}
-function saveWater(){
-  const v=+waterInput.value;
-  waterHistory.push(v);
-  const sum=waterHistory.reduce((a,b)=>a+b,0);
-  waterProgress.innerText=`${sum}/${waterGoal}`;
-  waterInput.value="";
-}
+function saveWater(){const v=+waterInput.value;waterHistory.push(v);const sum=waterHistory.reduce((a,b)=>a+b,0);waterProgress.innerText=`${sum}/${waterGoal}`;waterInput.value=""}
 
-/* SLEEP */
-function saveSleep(){
-  sleepHistory.push(+sleepInput.value);
-  sleepResult.innerText=`${sleepInput.value} hrs 💤`;
-}
+// Sleep
+function saveSleep(){sleepHistory.push(+sleepInput.value);sleepResult.innerText=`${sleepInput.value} hrs 💤`}
 
-/* TIME MIRROR */
-function timeTraveller() {
-  const task = document.getElementById("futureTask").value.trim();
-  if (!task) return alert("Enter a task or goal.");
-  const mirror = document.getElementById("timeMirror");
-  const didIt = `✨ Future if you do it: You feel accomplished and energized after completing "${task}". 💪`;
-  const didntDo = `💤 Future if you skip it: You feel regret and a missed opportunity after ignoring "${task}". 😔`;
-  mirror.innerHTML = `<p>${didIt}</p><p>${didntDo}</p>`;
-  document.getElementById("futureTask").value = "";
-}
+// Time Mirror
+function timeTraveller(){const task=futureTask.value.trim();if(!task)return alert("Enter a task or goal.");timeMirror.innerHTML=`<p>✨ Future if you do it: You feel accomplished and energized after completing "${task}". 💪</p><p>💤 Future if you skip it: You feel regret and a missed opportunity after ignoring "${task}". 😔</p>`;futureTask.value=""}
 
-/* QUOTES */
-const quotes=[
-  "🌱 'The journey of a thousand miles begins with one step.' – Lao Tzu",
-  "💪 'Your body can stand almost anything. It’s your mind that you have to convince.'",
-  "☀️ 'Every morning we are born again. What we do today matters most.' – Buddha",
-  "🌟 'Success is the sum of small efforts repeated day in and day out.' – Robert Collier",
-  "🧘 'Happiness is not something ready-made. It comes from your own actions.' – Dalai Lama",
-  "🔥 'Don’t watch the clock; do what it does. Keep going.' – Sam Levenson"
-];
-function newQuote(){
-  quoteDisplay.innerText=quotes[Math.random()*quotes.length|0];
-}
+// Quotes
+const quotes=["🌱 'The journey of a thousand miles begins with one step.' – Lao Tzu","💪 'Your body can stand almost anything. It’s your mind that you have to convince.'","☀️ 'Every morning we are born again. What we do today matters most.' – Buddha","🌟 'Success is the sum of small efforts repeated day in and day out.' – Robert Collier","🧘 'Happiness is not something ready-made. It comes from your own actions.' – Dalai Lama","🔥 'Don’t watch the clock; do what it does. Keep going.' – Sam Levenson"];
+function newQuote(){quoteDisplay.innerText=quotes[Math.floor(Math.random()*quotes.length)];}
 newQuote();
 
-/* GRATITUDE */
-function saveGratitude(){
-  gratitudeLogs.innerHTML+=`<div>${gratitudeInput.value}</div>`;
-  gratitudeInput.value="";
-}
+// Gratitude
+function saveGratitude(){const t=gratitudeInput.value.trim();if(!t)return;gratitudeLogs.innerHTML+=`<div>${new Date().toLocaleTimeString()} - ${t}</div>`;gratitudeInput.value="";}
 
-/* CHALLENGE */
-const challenges = ["Meditate 10 min", "Drink 8 glasses of water", "Walk 5000 steps", "Write 3 gratitudes"];
-function completeChallenge(){
-  challengeResult.innerText="Completed 🎉";
-  dailyChallenge.innerText=challenges[Math.random()*challenges.length|0];
-}
-dailyChallenge.innerText=challenges[0];
+// Daily Challenge
+const challenge="Drink 2 extra glasses of water today 💧";dailyChallenge.innerText=challenge;
+function completeChallenge(){challengeResult.innerText="✅ Challenge completed! Great job!";}
+
 </script>
-
 </body>
 </html>
-
