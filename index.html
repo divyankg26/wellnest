@@ -191,6 +191,8 @@ button{
 </head>
 <body>
 
+<audio id="reminderSound" src="https://image2url.com/r2/default/audio/1770462028211-e2a46d69-8e18-430d-971b-e111cf9254b9.mp3" preload="auto"></audio>
+
 <!-- SPLASH -->
 <div id="splash">
   <img src="https://gcdnb.pbrd.co/images/T3DLjTXN0F9N.jpg?o=1">
@@ -433,7 +435,10 @@ function aiChat(){
   if(!input) return;
   let msg=input.toLowerCase();
   let response="";
-  if(msg.match(/hi|hello|hey/)) response="Hey there! What's up? 😊";
+  if(msg.match(/hi|hello|hey/)) {
+    const currentUser = localStorage.getItem("novafixUser") || "there";
+    response = `Hey there! What's up, ${currentUser}? 😊`;
+}
   else if(msg.match(/who are you/)) response="I am your NovaFix wellness companion 🌱";
   else if(msg.match(/analyze|analysis|report|conclude/)){
     if(moodHistory.length===0&&waterHistory.length===0&&sleepHistory.length===0){
@@ -452,18 +457,30 @@ function aiChat(){
 }
 
 // Reminders
-function addReminder(){
-  const t=reminderText.value.trim();
-  const m=+reminderMinutes.value;
-  if(!t||m<=0)return;
-  const li=document.createElement("li");
+function addReminder() {
+  const t = reminderText.value.trim();
+  const m = +reminderMinutes.value;
+  if (!t || m <= 0) return;
+
+  const li = document.createElement("li");
   reminders.appendChild(li);
-  let s=m*60;
-  const i=setInterval(()=>{
-    if(s<=0){clearInterval(i);li.textContent=`${t} – Time's up!`;return;}
-    li.textContent=`${t} – ${Math.floor(s/60)}m ${s%60}s`;s--;
-  },1000);
-  reminderText.value="";reminderMinutes.value="";
+  let s = m * 60;
+
+  const audio = document.getElementById("reminderSound");
+
+  const i = setInterval(() => {
+    if (s <= 0) {
+      clearInterval(i);
+      li.textContent = `${t} – Time's up!`;
+      if(audio) audio.play(); // 🔊 Play your custom sound
+      return;
+    }
+    li.textContent = `${t} – ${Math.floor(s / 60)}m ${s % 60}s`;
+    s--;
+  }, 1000);
+
+  reminderText.value = "";
+  reminderMinutes.value = "";
 }
 
 // Tasks
