@@ -523,9 +523,39 @@ newQuote();
 function saveGratitude(){const t=gratitudeInput.value.trim();if(!t)return;gratitudeLogs.innerHTML+=`<div>${new Date().toLocaleTimeString()} - ${t}</div>`;gratitudeInput.value="";}
 
 // Daily Challenge
-const challenge="Drink 2 extra glasses of water today 💧";dailyChallenge.innerText=challenge;
-function completeChallenge(){challengeResult.innerText="✅ Challenge completed! Great job!";}
+const dailyChallenges = [
+  "Finish 1 small task you’ve been putting off.",
+  "Learn 1 new word or fact today.",
+  "Clean or organize one small area of your room/desk.",
+  "Write down 3 things you’re grateful for.",
+  "Smile at 3 people today.",
+  "Avoid social media for 1 hour.",
+  "Try a new hobby for 15 minutes.",
+  "Drink 1 extra glass of water today.",
+  "Take a 5-minute stretch break every 2 hours.",
+  "Eat a fruit or vegetable with every meal.",
+  "Meditate for 5–10 minutes."
+];
+
+// ---------- Function to pick a random daily challenge ----------
+function pickDailyChallenge() {
+  const challenge = dailyChallenges[Math.floor(Math.random() * dailyChallenges.length)];
+  const dailyChallengeElement = document.getElementById("dailyChallenge");
+  const challengeResultElement = document.getElementById("challengeResult");
+  dailyChallengeElement.innerText = challenge;
+  challengeResultElement.innerText = ""; // clear previous completion
+}
+
+// Initialize daily challenge on page load
+pickDailyChallenge();
+
+// Complete challenge function
+function completeChallenge() {
+  const challengeResultElement = document.getElementById("challengeResult");
+  challengeResultElement.innerText = "✅ Challenge completed! Great job!";
+}
 
 </script>
 </body>
 </html>
+
