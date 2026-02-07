@@ -506,7 +506,17 @@ function saveMood(){moodLogs.innerHTML+=`<div>${new Date().toLocaleTimeString()}
 // Water
 let waterGoal=0;
 function setWaterGoal(){waterGoal=+waterGoalInput.value}
-function saveWater(){const v=+waterInput.value;waterHistory.push(v);const sum=waterHistory.reduce((a,b)=>a+b,0);waterProgress.innerText=`${sum}/${waterGoal}`;waterInput.value=""}
+function saveWater() {
+  const v = +waterInput.value;
+  if (!v) return; // ignore empty or 0 input
+  waterHistory.push(v);
+  
+  const sum = waterHistory.reduce((a, b) => a + b, 0);
+  const percent = waterGoal > 0 ? Math.round((sum / waterGoal) * 100) : 0;
+  
+  waterProgress.innerText = `${sum}/${waterGoal} (${percent}%)`;
+  waterInput.value = "";
+}
 
 // Sleep
 function saveSleep(){sleepHistory.push(+sleepInput.value);sleepResult.innerText=`${sleepInput.value} hrs 💤`}
@@ -558,4 +568,3 @@ function completeChallenge() {
 </script>
 </body>
 </html>
-
