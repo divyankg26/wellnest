@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -329,6 +330,15 @@ button{
 </div>
 
 <script>
+async function hashPassword(password) {
+  const encoder = new TextEncoder();
+  const data = encoder.encode(password);
+  const hashBuffer = await crypto.subtle.digest("SHA-256", data);
+  return Array.from(new Uint8Array(hashBuffer))
+    .map(b => b.toString(16).padStart(2, "0"))
+    .join("");
+}
+
 // ---------- SPLASH ----------
 const splash = document.getElementById("splash");
 const signInModal = document.getElementById("signInModal");
@@ -390,21 +400,40 @@ function toggleAuth(){
   }
 }
 
-function handleAuth(){
-  const username=usernameInput.value.trim();
-  const password=passwordInput.value.trim();
-  const error=document.getElementById("signInError");
-  if(!username||!password){error.style.display="block";error.innerText="Username or password cannot be empty!";return;}
-  const users=JSON.parse(localStorage.getItem("novafixUsers")||"{}");
-  if(authMode==="signup"){
-    if(users[username]){error.style.display="block";error.innerText="Username already exists!";return;}
-    users[username]=password;
-    localStorage.setItem("novafixUsers",JSON.stringify(users));
-    localStorage.setItem("novafixUser",username);
+async function handleAuth(){
+  const username = usernameInput.value.trim();
+  const password = passwordInput.value.trim();
+  const error = document.getElementById("signInError");
+
+  if(!username || !password){
+    error.style.display = "block";
+    error.innerText = "Username or password cannot be empty!";
+    return;
+  }
+
+  const users = JSON.parse(localStorage.getItem("novafixUsers") || "{}");
+  const hashedPassword = await hashPassword(password);
+
+  if(authMode === "signup"){
+    if(users[username]){
+      error.style.display = "block";
+      error.innerText = "Username already exists!";
+      return;
+    }
+
+    users[username] = hashedPassword;
+    localStorage.setItem("novafixUsers", JSON.stringify(users));
+    localStorage.setItem("novafixUser", username);
     loginSuccess(username);
+
   } else {
-    if(!users[username]||users[username]!==password){error.style.display="block";error.innerText="Incorrect username or password!";return;}
-    localStorage.setItem("novafixUser",username);
+    if(!users[username] || users[username] !== hashedPassword){
+      error.style.display = "block";
+      error.innerText = "Incorrect username or password!";
+      return;
+    }
+
+    localStorage.setItem("novafixUser", username);
     loginSuccess(username);
   }
 }
@@ -574,3 +603,4 @@ function completeChallenge() {
 </script>
 </body>
 </html>
+
