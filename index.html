@@ -2,525 +2,393 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<title> NovaFix – Dashboard</title>
+<title>NovaFix – Dashboard</title>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
 <style>
-/* Ensure html & body take full height */
-html, body {
-  height: 100%;
-  margin: 0;       /* remove default margins */
-  padding: 0;
-}
-
-/* ---------- SPLASH SCREEN ---------- */
-#splash {
-  position: fixed;           /* cover full screen */
-  inset: 0;                  /* top, bottom, left, right = 0 */
-  background: #a0a0a2;       /* darker grey (#a9a9a9 = darkgrey) */
-  display: flex;             /* flex centering */
-  justify-content: center;   /* horizontal center */
-  align-items: flex-start;       /* vertical center */
-  z-index: 99999;            /* top layer */
-}
-
-#splash img {
-  width: 600px;              /* adjust size */
-  max-width: 90%;
-  animation: popIn 1.2s ease;
-  /* filter: drop-shadow(0 12px 30px rgba(0,0,0,0.7)); /* make image pop */
-}
-
-@keyframes popIn {
-  from { transform: scale(0.85); opacity: 0; }
-  to   { transform: scale(1); opacity: 1; }
-}
-
-
-/* ---------- VARIABLES ---------- */
-:root {
-  --primary: #2e7d32;
-  --accent: #81c784;
-  --bg: rgba(255,255,255,0.1);
-  --glass: rgba(255,255,255,0.2);
-  --text: #222;
-  --headerText: white;
-  --bulletText: white;
-}
-body.dark {
-  --primary: #81c784;
-  --accent: #2e7d32;
-  --bg: rgba(0,0,0,0.2);
-  --glass: rgba(30,30,30,0.25);
-  --text: #eee;
-  --headerText: white;
-  --bulletText: white;
+/* ---------- ROOT ---------- */
+:root{
+  --waveA:#2196f3;
+  --waveB:#ff9800;
+  --primary:#2196f3;
+  --accent:#ff9800;
+  --glass:rgba(255,255,255,0.18);
+  --text:#fff;
 }
 
 /* ---------- BASE ---------- */
-body {
+html,body{
   margin:0;
+  height:100%;
   font-family:'Segoe UI',sans-serif;
-  background: var(--bg);
-  color: var(--text);
-  transition: 0.3s;
-  backdrop-filter: blur(5px);
+  color:var(--text);
+}
+
+body{
+  background:linear-gradient(120deg,var(--waveA),var(--waveB));
+  background-size:200% 200%;
+  animation:waveMove 8s ease-in-out infinite;
+  overflow-x:hidden;
+}
+
+@keyframes waveMove{
+  0%{background-position:0% 50%}
+  50%{background-position:100% 50%}
+  100%{background-position:0% 50%}
+}
+
+/* ---------- SPLASH ---------- */
+#splash{
+  position:fixed;
+  inset:0;
+  background:#FFFFFF;
+  display:flex;
+  justify-content:center;
+  align-items:center;
+  z-index:9999;
+  transition:opacity 1s ease, transform 1s ease;
+}
+#splash.hide{
+  opacity:0;
+  transform:translateY(-40px);
+  pointer-events:none;
+}
+#splash img{
+  width:450px;
+  max-width:80%;
+  animation:popIn 1.2s ease;
+}
+@keyframes popIn{
+  from{opacity:0;transform:scale(.85)}
+  to{opacity:1;transform:scale(1)}
 }
 
 /* ---------- HEADER ---------- */
-header {
-  padding:30px;
+header{
   text-align:center;
-  background: var(--glass);
-  backdrop-filter: blur(12px);
-  border-radius: 0 0 20px 20px;
-  box-shadow: 0 8px 20px rgba(0,0,0,0.15);
-  display:flex;
-  flex-direction:column;
-  align-items:center;
+  padding:30px;
+  background:var(--glass);
+  backdrop-filter:blur(14px);
+  border-radius:0 0 20px 20px;
+  box-shadow:0 12px 30px rgba(0,0,0,.3);
 }
-header h1 { margin:0 0 6px; color: var(--headerText); }
-header p { margin:0; color: var(--bulletText); }
-header button {
-  margin-top:10px;
-  padding:6px 12px;
-  border:none;
-  border-radius:12px;
-  cursor:pointer;
-  background: rgba(255,255,255,0.15);
-  color: var(--text);
-  font-weight:bold;
-  backdrop-filter: blur(5px);
-  transition: 0.2s;
-}
-header button:hover { background: rgba(255,255,255,0.25); }
+header h1{margin:0;color:var(--primary)}
+header p{margin:6px 0 0}
 
-/* ---------- DASHBOARD GRID ---------- */
-.dashboard {
+/* ---------- DASHBOARD ---------- */
+.dashboard{
   display:grid;
   grid-template-columns:repeat(auto-fit,minmax(300px,1fr));
-  grid-auto-rows:380px;
   gap:24px;
   padding:24px;
 }
 
-/* ---------- CARDS ---------- */
-.card {
-  background: var(--glass);
-  backdrop-filter: blur(15px);
+/* ---------- CARD ---------- */
+.card{
+  background:var(--glass);
+  backdrop-filter:blur(16px);
   border-radius:20px;
   padding:20px;
-  box-shadow:0 14px 34px rgba(0,0,0,0.1);
+  box-shadow:0 16px 40px rgba(0,0,0,.3);
   display:flex;
   flex-direction:column;
-  justify-content:space-between;
-  transition:0.3s;
-  overflow:hidden;
-  border: 1px solid rgba(255,255,255,0.2);
+  border:1px solid rgba(255,255,255,.25);
 }
-.card:hover {
-  transform: translateY(-5px);
-  box-shadow:0 18px 40px rgba(0,0,0,0.2);
-}
-.card h2 { margin:0; font-size:1.2em; color: var(--primary); }
+.card h2{margin-top:0;color:var(--primary)}
 
-/* ---------- INPUTS & BUTTONS ---------- */
-.input-group {
+.input-group{
   display:flex;
   gap:8px;
-  margin-top:8px;
   flex-wrap:wrap;
+  margin-top:8px;
 }
-.input-group input,
-.input-group select,
-.input-group button,
-.input-group textarea {
-  flex:1;
-  margin-top:0;
+
+input,select,textarea,button{
   padding:10px;
   border-radius:12px;
-  border: 1px solid rgba(255,255,255,0.2);
-  font-size:0.95em;
-  background: var(--glass);
-  color: var(--text);
-  backdrop-filter: blur(5px);
-  font-family:'Segoe UI',sans-serif;
-  transition:0.3s;
-}
-.input-group button {
-  flex:none;
-  padding:10px 16px;
   border:none;
-  background: var(--glass);
-  color: var(--text);
+  background:rgba(255,255,255,.22);
+  color:var(--text);
+  font-family:inherit;
+}
+
+button{
   cursor:pointer;
   font-weight:bold;
+  background:linear-gradient(135deg,var(--primary),var(--accent));
 }
-.input-group button:hover { opacity:0.8; }
-textarea { resize:none; }
-textarea:focus { outline:none; border-color: var(--primary); }
 
-/* ---------- LOG AREAS ---------- */
-.chat, #moodLogs, #gratitudeLogs, #reminders, #taskList {
+.chat,#moodLogs,#gratitudeLogs,#reminders,#taskList{
   flex-grow:1;
   overflow-y:auto;
-  background: var(--glass);
-  padding:10px;
+  padding:8px;
   border-radius:12px;
-  font-size:0.95em;
-  border:1px solid rgba(255,255,255,0.2);
-  color: var(--text);
-  backdrop-filter: blur(5px);
-  transition:0.3s;
+  background:rgba(0,0,0,.15);
+  margin-top:8px;
 }
 
-/* ---------- MISC ---------- */
-.small { font-size:0.95em; }
-ul { padding-left:16px; margin:4px 0; }
-ul li { color: var(--text); }
-
-/* ---------- SCROLLBARS ---------- */
-#moodLogs::-webkit-scrollbar,
-#gratitudeLogs::-webkit-scrollbar,
-#reminders::-webkit-scrollbar,
-#taskList::-webkit-scrollbar { width:6px; }
-#moodLogs::-webkit-scrollbar-thumb,
-#gratitudeLogs::-webkit-scrollbar-thumb,
-#reminders::-webkit-scrollbar-thumb,
-#taskList::-webkit-scrollbar-thumb { background-color: var(--primary); border-radius:3px; }
-#moodLogs::-webkit-scrollbar-track,
-#gratitudeLogs::-webkit-scrollbar-track,
-#reminders::-webkit-scrollbar-track,
-#taskList::-webkit-scrollbar-track { background-color: var(--glass); }
+/* ---------- SCROLL ---------- */
+::-webkit-scrollbar{width:6px}
+::-webkit-scrollbar-thumb{background:var(--primary);border-radius:3px}
 </style>
 </head>
-<body class="dark">
 
-<!-- SPLASH SCREEN -->
+<body>
+
 <div id="splash">
-  <img src="https://gcdnb.pbrd.co/images/bVMPNbUhM3ZZ.jpg?o=1" alt="NovaFix Splash">
+  <img src="https://gcdnb.pbrd.co/images/T3DLjTXN0F9N.jpg?o=1">
 </div>
 
 <header>
-  <h1> NovaFix</h1>
+  <h1>NovaFix</h1>
   <p>Mind • Body • Money • Music • Productivity</p>
 </header>
 
 <div class="dashboard">
 
-  <!-- AI COMPANION -->
-  <div class="card">
-    <h2>🤖 AI Companion</h2>
-    <div class="chat" id="chat"></div>
-    <div class="input-group">
-      <input id="aiInput" placeholder="Talk to AI">
-      <button onclick="aiChat()">Talk</button>
-    </div>
-  </div>
+<div class="card">
+<h2>🤖 AI Companion</h2>
+<div class="chat" id="chat"></div>
+<div class="input-group">
+<input id="aiInput" placeholder="Talk to AI">
+<button onclick="aiChat()">Talk</button>
+</div>
+</div>
 
-  <!-- REMINDERS -->
-  <div class="card">
-    <h2>⏰ Reminders</h2>
-    <div class="input-group">
-      <input id="reminderText" placeholder="Reminder text">
-      <input type="number" id="reminderMinutes" placeholder="Minutes" style="max-width:120px;">
-      <button onclick="addReminder()">Set Reminder</button>
-    </div>
-    <ul id="reminders" class="small"></ul>
-  </div>
+<div class="card">
+<h2>⏰ Reminders</h2>
+<div class="input-group">
+<input id="reminderText" placeholder="Reminder">
+<input type="number" id="reminderMinutes" placeholder="Minutes">
+<button onclick="addReminder()">Set</button>
+</div>
+<ul id="reminders"></ul>
+</div>
 
-  <!-- PRODUCTIVITY -->
-  <div class="card">
-    <h2>📊 Productivity</h2>
-    <div class="input-group">
-      <input id="task" placeholder="Today's main task">
-      <button onclick="addTask()">Add</button>
-    </div>
-    <ul id="taskList" class="small"></ul>
-  </div>
+<div class="card">
+<h2>📊 Productivity</h2>
+<div class="input-group">
+<input id="task" placeholder="Task">
+<button onclick="addTask()">Add</button>
+</div>
+<ul id="taskList"></ul>
+</div>
 
-  <!-- GROCERY FINANCING -->
-  <div class="card">
-    <h2>🧾 Grocery Financing</h2>
-    <div class="input-group">
-      <input type="number" id="gCost" placeholder="Monthly grocery ₹">
-      <input type="number" id="gMonths" placeholder="Planning months" style="max-width:120px;">
-      <input type="number" id="buffer" placeholder="Safety buffer %" style="max-width:120px;">
-      <button onclick="calculateFinance()">Plan</button>
-    </div>
-    <p id="financeResult" class="small"></p>
-  </div>
+<div class="card">
+<h2>🧾 Grocery Financing</h2>
+<input id="gCost" placeholder="Monthly ₹">
+<input id="gMonths" placeholder="Months">
+<input id="buffer" placeholder="Buffer %">
+<button onclick="calculateFinance()">Plan</button>
+<p id="financeResult"></p>
+</div>
 
-  <!-- MOOD TRACKER -->
-  <div class="card">
-    <h2>🧘 Mood Tracker</h2>
-    <div class="input-group">
-      <select id="mood">
-        <option>😊 Happy</option>
-        <option>😐 Neutral</option>
-        <option>😔 Low</option>
-      </select>
-      <button onclick="saveMood()">Save</button>
-    </div>
-    <p id="moodResult" class="small"></p>
-    <div id="moodLogs"></div>
-  </div>
+<div class="card">
+<h2>🧘 Mood Tracker</h2>
+<select id="mood">
+<option>😊 Happy</option>
+<option>😐 Neutral</option>
+<option>😔 Low</option>
+</select>
+<button onclick="saveMood()">Save</button>
+<div id="moodLogs"></div>
+</div>
 
-  <!-- WATER INTAKE WITH GOAL -->
-  <div class="card">
-    <h2>💧 Water Intake</h2>
-    <div class="input-group">
-      <input type="number" id="waterGoal" placeholder="Set daily goal (glasses)" style="max-width:150px;">
-      <button onclick="setWaterGoal()">Set Goal</button>
-    </div>
-    <div class="input-group">
-      <input type="number" id="water" placeholder="Glasses today">
-      <button onclick="saveWater()">Track</button>
-    </div>
-    <p id="waterResult" class="small"></p>
-    <p id="waterProgress" class="small"></p>
-  </div>
+<div class="card">
+<h2>💧 Water Intake</h2>
+<input id="waterGoalInput" placeholder="Daily goal">
+<button onclick="setWaterGoal()">Set Goal</button>
+<input id="waterInput" placeholder="Glasses">
+<button onclick="saveWater()">Track</button>
+<p id="waterProgress"></p>
+</div>
 
-  <!-- SLEEP -->
-  <div class="card">
-    <h2>💤 Sleep Tracker</h2>
-    <div class="input-group">
-      <input type="number" id="sleep" placeholder="Hours slept">
-      <button onclick="saveSleep()">Save</button>
-    </div>
-    <p id="sleepResult" class="small"></p>
-  </div>
+<div class="card">
+<h2>💤 Sleep</h2>
+<input id="sleepInput" placeholder="Hours">
+<button onclick="saveSleep()">Save</button>
+<p id="sleepResult"></p>
+</div>
 
-  <!-- MUSIC -->
-  <div class="card">
-    <h2>🎵 Wellness Music</h2>
-    <p class="small">Calm & focus-enhancing playlist</p>
-    <iframe style="border-radius:14px" src="https://open.spotify.com/embed/playlist/0Gwjm4uWLCSE7ZIiY6dK2X?utm_source=generator" width="100%" height="190" frameborder="0" allow="autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture"></iframe>
-  </div>
+<div class="card">
+<h2>🎵 Wellness Music</h2>
+<iframe style="border-radius:14px" src="https://open.spotify.com/embed/playlist/0Gwjm4uWLCSE7ZIiY6dK2X" width="100%" height="190"></iframe>
+</div>
 
-  <!-- TIME TRAVELLER MIRROR -->
-  <div class="card">
-    <h2>🪞 Time Traveller Mirror</h2>
-    <p class="small">See how your choices affect your wellness journey</p>
-    <div class="input-group">
-      <input id="futureTask" placeholder="Enter a task/goal">
-      <button onclick="timeTraveller()">Check</button>
-    </div>
-    <div id="timeMirror" class="small"></div>
-  </div>
+<div class="card">
+<h2>🪞 Time Traveller Mirror</h2>
+<input id="futureTask" placeholder="Enter goal">
+<button onclick="timeTraveller()">Check</button>
+<div id="timeMirror"></div>
+</div>
 
-  <!-- MOTIVATIONAL QUOTES -->
-  <div class="card">
-    <h2>💡 Motivational Quotes</h2>
-    <p id="quoteDisplay" class="small"></p>
-    <div class="input-group">
-      <button onclick="newQuote()">Inspire Me</button>
-    </div>
-  </div>
+<div class="card">
+<h2>💡 Motivational Quotes</h2>
+<p id="quoteDisplay"></p>
+<button onclick="newQuote()">Inspire Me</button>
+</div>
 
-  <!-- GRATITUDE JOURNAL -->
-  <div class="card">
-    <h2>🙏 Gratitude Journal</h2>
-    <textarea id="gratitudeInput" placeholder="What are you grateful for today?" rows="3"></textarea>
-    <div class="input-group">
-      <button onclick="saveGratitude()">Save Entry</button>
-    </div>
-    <div id="gratitudeLogs"></div>
-  </div>
+<div class="card">
+<h2>🙏 Gratitude Journal</h2>
+<textarea id="gratitudeInput" rows="3"></textarea>
+<button onclick="saveGratitude()">Save</button>
+<div id="gratitudeLogs"></div>
+</div>
 
-  <!-- DAILY CHALLENGE -->
-  <div class="card">
-    <h2>🏆 Daily Challenge</h2>
-    <p id="dailyChallenge" class="small"></p>
-    <div class="input-group">
-      <button onclick="completeChallenge()">Mark Complete ✅</button>
-    </div>
-    <p id="challengeResult" class="small"></p>
-  </div>
+<div class="card">
+<h2>🏆 Daily Challenge</h2>
+<p id="dailyChallenge"></p>
+<button onclick="completeChallenge()">Complete</button>
+<p id="challengeResult"></p>
+</div>
 
 </div>
 
 <script>
-// SPLASH SCREEN REMOVE
-setTimeout(() => {
-  const splash = document.getElementById("splash");
-  if (splash) splash.remove();
-}, 3000); // 3000ms = 3 seconds
+/* SPLASH */
+document.body.style.overflow="hidden";
+setTimeout(()=>{
+  splash.classList.add("hide");
+  setTimeout(()=>{splash.remove();document.body.style.overflow="auto";},1000);
+},3000);
 
-// Disable scroll while splash is active
-document.body.style.overflow = "hidden";
+/* COLOR WAVES */
+const waves=[
+["#2196f3","#ff9800"],
+["#9c27b0","#03a9f4"],
+["#ff5722","#4caf50"],
+["#3f51b5","#e91e63"],
+["#009688","#ffc107"]
+];
+let w=0;
+function updateWave(){
+  document.documentElement.style.setProperty("--waveA",waves[w][0]);
+  document.documentElement.style.setProperty("--waveB",waves[w][1]);
+  document.documentElement.style.setProperty("--primary",waves[w][0]);
+  document.documentElement.style.setProperty("--accent",waves[w][1]);
+  w=(w+1)%waves.length;
+}
+updateWave();
+setInterval(updateWave,8000);
 
-setTimeout(() => {
-  const splash = document.getElementById("splash");
-  if (splash) splash.remove();
-  // Re-enable scrolling after splash disappears
-  document.body.style.overflow = "auto";
-}, 3000);
-
-// ---------- THEME ----------
-function toggleTheme(){document.body.classList.toggle("dark");}
-
-// ---------- AI ----------
-const moodHistory=[], waterHistory=[], sleepHistory=[];
+/* AI */
+const moodHistory=[],waterHistory=[],sleepHistory=[];
 function aiChat(){
-  const input=document.getElementById("aiInput").value.trim();
+  const input = aiInput.value.trim();
   if(!input) return;
-  const msg=input.toLowerCase();
-  let response="";
-  const leafLogo="🌿";
 
-  if(msg.match(/hi|hello|hey/)) response=`I am NovaFix AI ${leafLogo}`;
-  else if(msg.match(/who are you/)) response=`I am NovaFix AI ${leafLogo}, your wellness companion.`;
-  else if(msg.match(/analyze|conclude|report/)){
-    if(moodHistory.length===0 && waterHistory.length===0 && sleepHistory.length===0){
-      response="No data recorded yet to analyze.";
+  const msg = input.toLowerCase();
+  let response = "";
+
+  if(msg.match(/hi|hello|hey/)){
+    response = "Hey there! What's up? 😊";
+  }
+  else if(msg.match(/who are you/)){
+    response = "I am your NovaFix wellness companion 🌱";
+  }
+  else if(msg.match(/analyze|analysis|report|conclude/)){
+    if(
+      moodHistory.length === 0 &&
+      waterHistory.length === 0 &&
+      sleepHistory.length === 0
+    ){
+      response = "You haven’t logged enough data yet for analysis. Start with mood, water, or sleep 🌱";
     } else {
-      response="Here is your latest wellness data analysis:<br>";
-      if(sleepHistory.length) response+=`Sleep: Last ${sleepHistory[sleepHistory.length-1]} hrs<br>`;
-      if(waterHistory.length) response+=`Water: Last ${waterHistory[waterHistory.length-1]} glasses<br>`;
-      if(moodHistory.length){
-        const lastMood=moodHistory[moodHistory.length-1];
-        response+=`Mood: Last ${lastMood.value} at ${lastMood.time}<br>`;
+      response = "📊 <b>Your Wellness Analysis</b><br>";
+
+      if(sleepHistory.length){
+        const lastSleep = sleepHistory[sleepHistory.length - 1];
+        response += `💤 Sleep: ${lastSleep} hrs<br>`;
       }
-      response+="Tip: Keep a consistent routine, stay hydrated, and track mood for better insight.";
+
+      if(waterHistory.length){
+        const totalWater = waterHistory.reduce((a,b)=>a+b,0);
+        response += `💧 Water today: ${totalWater} glasses<br>`;
+      }
+
+      if(moodHistory.length){
+        const lastMood = moodHistory[moodHistory.length - 1];
+        response += `🧘 Mood: ${lastMood}<br>`;
+      }
+
+      response += "<br>✨ Tip: Consistency beats intensity. Hydrate well, protect sleep, and track mood daily.";
     }
-  } else {
-    response="I'm analyzing your input. Tell me more about your energy, mood, or wellness concern.";
+  }
+  else{
+    response = "I’m listening 🌿 Tell me about your mood, energy, or type *analyze* to see your wellness report.";
   }
 
-  const chat=document.getElementById("chat");
-  chat.innerHTML+=`<p><b>You:</b> ${input}</p><p><b>AI:</b><br>${response}</p>`;
-  chat.scrollTop=chat.scrollHeight;
-  document.getElementById("aiInput").value="";
+  chat.innerHTML += `
+    <p><b>You:</b> ${input}</p>
+    <p><b>AI:</b><br>${response}</p>
+  `;
+  chat.scrollTop = chat.scrollHeight;
+  aiInput.value = "";
 }
 
-// ---------- REMINDERS ----------
+/* REMINDER */
 function addReminder(){
-  const text=document.getElementById("reminderText").value.trim();
-  const minutes=parseFloat(document.getElementById("reminderMinutes").value);
-  if(!text||isNaN(minutes)||minutes<=0){alert("Enter reminder text and valid minutes."); return;}
-  const ul=document.getElementById("reminders");
+  const t=reminderText.value.trim();
+  const m=+reminderMinutes.value;
+  if(!t||m<=0)return;
   const li=document.createElement("li");
-  ul.appendChild(li);
-
-  let timeLeft=minutes*60;
-  const interval=setInterval(()=> {
-    if(timeLeft<=0){
-      clearInterval(interval);
-      li.textContent=`${text} - Time's up!`;
-      const audio=new Audio("https://actions.google.com/sounds/v1/alarms/alarm_clock.ogg");
-      audio.volume=1; audio.play();
+  reminders.appendChild(li);
+  let s=m*60;
+  const i=setInterval(()=>{
+    if(s<=0){
+      clearInterval(i);
+      li.textContent=`${t} – Time's up!`;
+      new Audio("https://image2url.com/r2/default/audio/1770452153508-4fc64f7a-25c4-4054-b3e4-7f9d7c20da83.mp3").play();
       return;
     }
-    const mins=Math.floor(timeLeft/60), secs=timeLeft%60;
-    li.textContent=`${text} - ${mins}m ${secs}s remaining`;
-    timeLeft--;
+    li.textContent=`${t} – ${Math.floor(s/60)}m ${s%60}s`;
+    s--;
   },1000);
-
-  document.getElementById("reminderText").value="";
-  document.getElementById("reminderMinutes").value="";
+  reminderText.value="";reminderMinutes.value="";
 }
 
-// ---------- TASKS ----------
+/* TASKS */
 function addTask(){
-  const taskText = document.getElementById("task").value.trim();
-  if(!taskText) return;
-
-  const ul = document.getElementById("taskList");
-  const li = document.createElement("li");
-
-  const span = document.createElement("span");
-  span.textContent = taskText;
-
-  const editBtn = document.createElement("button");
-  editBtn.textContent = "✏️";
-  editBtn.className = "task-btn";
-  editBtn.onclick = () => {
-    const newText = prompt("Edit task:", span.textContent);
-    if(newText !== null && newText.trim() !== "") {
-      span.textContent = newText.trim();
-    }
-  };
-
-  const delBtn = document.createElement("button");
-  delBtn.textContent = "🗑️";
-  delBtn.className = "task-btn";
-  delBtn.onclick = () => {
-    if(confirm("Delete this task?")) {
-      ul.removeChild(li);
-    }
-  };
-
-  li.appendChild(span);
-  li.appendChild(editBtn);
-  li.appendChild(delBtn);
-
-  ul.appendChild(li);
-  document.getElementById("task").value = "";
+  const t=task.value.trim();
+  if(!t)return;
+  const li=document.createElement("li");
+  const span=document.createElement("span");
+  span.textContent=t;
+  const e=document.createElement("button");e.textContent="✏️";
+  e.onclick=()=>{const n=prompt("Edit task",span.textContent);if(n)span.textContent=n};
+  const d=document.createElement("button");d.textContent="🗑️";d.onclick=()=>li.remove();
+  li.append(span,e,d);taskList.appendChild(li);task.value="";
 }
 
-
-// ---------- FINANCE ----------
+/* FINANCE */
 function calculateFinance(){
-  const cost=parseFloat(document.getElementById("gCost").value);
-  const months=parseFloat(document.getElementById("gMonths").value);
-  const buffer=parseFloat(document.getElementById("buffer").value)||0;
-  if(isNaN(cost)||isNaN(months)||months<=0){alert("Enter valid values."); return;}
-  const total=cost*months, final=total*(1+buffer/100);
-  document.getElementById("financeResult").innerHTML=`Total: ₹${final.toFixed(0)}<br>Monthly: ₹${(final/months).toFixed(0)}`;
+  const total=gCost.value*gMonths.value*(1+buffer.value/100);
+  financeResult.innerText=`Total ₹${total.toFixed(0)}`;
 }
 
-// ---------- MOOD / WATER / SLEEP ----------
+/* MOOD */
 function saveMood(){
-  const mood=document.getElementById("mood").value;
-  const now=new Date();
-  const timestamp=`${now.getHours()}:${now.getMinutes()}:${now.getSeconds()}`;
-  document.getElementById("moodResult").innerText=`Mood saved: ${mood}`;
-  moodHistory.push({value:mood,time:timestamp});
-  const ul=document.getElementById("moodLogs");
-  const entry=document.createElement("div");
-  entry.textContent=`${timestamp} - ${mood}`;
-  ul.appendChild(entry);
+  moodLogs.innerHTML+=`<div>${new Date().toLocaleTimeString()} - ${mood.value}</div>`;
 }
 
-// ---------- WATER WITH GOAL ----------
-let waterGoal = 0;
-
-function setWaterGoal(){
-  const goalInput = parseInt(document.getElementById("waterGoal").value);
-  if(isNaN(goalInput)||goalInput<=0){alert("Enter a valid positive number for your water goal."); return;}
-  waterGoal = goalInput;
-  document.getElementById("waterGoal").value = "";
-  updateWaterProgress();
-}
-
+/* WATER */
+let waterGoal=0;
+function setWaterGoal(){waterGoal=+waterGoalInput.value}
 function saveWater(){
-  const waterIntake = parseInt(document.getElementById("water").value);
-  if(isNaN(waterIntake)||waterIntake<=0){alert("Enter a valid number of glasses."); return;}
-  waterHistory.push(waterIntake);
-  document.getElementById("waterResult").innerText = `${waterIntake} glasses 💧`;
-  document.getElementById("water").value = "";
-  updateWaterProgress();
+  const v=+waterInput.value;
+  waterHistory.push(v);
+  const sum=waterHistory.reduce((a,b)=>a+b,0);
+  waterProgress.innerText=`${sum}/${waterGoal}`;
+  waterInput.value="";
 }
 
-function updateWaterProgress(){
-  if(waterGoal===0){
-    document.getElementById("waterProgress").innerText = "Set a daily water goal to track progress!";
-    return;
-  }
-  const totalIntake = waterHistory.reduce((sum,val)=>sum+val,0);
-  const progressPercent = Math.min((totalIntake/waterGoal)*100,100).toFixed(0);
-  document.getElementById("waterProgress").innerText = 
-    `Progress: ${totalIntake}/${waterGoal} glasses (${progressPercent}%) ${progressPercent>=100?"✅ Goal reached!":""}`;
-}
-
-// ---------- SLEEP ----------
+/* SLEEP */
 function saveSleep(){
-  const sleep=document.getElementById("sleep").value;
-  document.getElementById("sleepResult").innerText=`${sleep} hrs 💤`;
-  sleepHistory.push(sleep);
+  sleepHistory.push(+sleepInput.value);
+  sleepResult.innerText=`${sleepInput.value} hrs 💤`;
 }
 
-// ---------- TIME TRAVELLER MIRROR ----------
+/* TIME MIRROR */
 function timeTraveller() {
   const task = document.getElementById("futureTask").value.trim();
   if (!task) return alert("Enter a task or goal.");
@@ -531,8 +399,8 @@ function timeTraveller() {
   document.getElementById("futureTask").value = "";
 }
 
-// ---------- QUOTES ----------
-const quotes = [
+/* QUOTES */
+const quotes=[
   "🌱 'The journey of a thousand miles begins with one step.' – Lao Tzu",
   "💪 'Your body can stand almost anything. It’s your mind that you have to convince.'",
   "☀️ 'Every morning we are born again. What we do today matters most.' – Buddha",
@@ -540,36 +408,24 @@ const quotes = [
   "🧘 'Happiness is not something ready-made. It comes from your own actions.' – Dalai Lama",
   "🔥 'Don’t watch the clock; do what it does. Keep going.' – Sam Levenson"
 ];
-function newQuote() {
-  const q = quotes[Math.floor(Math.random() * quotes.length)];
-  document.getElementById("quoteDisplay").innerText = q;
+function newQuote(){
+  quoteDisplay.innerText=quotes[Math.random()*quotes.length|0];
 }
 newQuote();
 
-// ---------- GRATITUDE ----------
-function saveGratitude() {
-  const input = document.getElementById("gratitudeInput").value.trim();
-  if (!input) return;
-  const now = new Date();
-  const timestamp = `${now.getFullYear()}-${now.getMonth()+1}-${now.getDate()} ${now.getHours()}:${now.getMinutes()}`;
-  const log = document.createElement("div");
-  log.textContent = `${timestamp} - ${input}`;
-  document.getElementById("gratitudeLogs").appendChild(log);
-  document.getElementById("gratitudeInput").value = "";
+/* GRATITUDE */
+function saveGratitude(){
+  gratitudeLogs.innerHTML+=`<div>${gratitudeInput.value}</div>`;
+  gratitudeInput.value="";
 }
 
-// ---------- DAILY CHALLENGE ----------
+/* CHALLENGE */
 const challenges = ["Meditate 10 min", "Drink 8 glasses of water", "Walk 5000 steps", "Write 3 gratitudes"];
 function completeChallenge(){
-  const res = document.getElementById("challengeResult");
-  res.innerText = "🎉 Challenge completed!";
-  newDailyChallenge();
+  challengeResult.innerText="Completed 🎉";
+  dailyChallenge.innerText=challenges[Math.random()*challenges.length|0];
 }
-function newDailyChallenge(){
-  document.getElementById("dailyChallenge").innerText = challenges[Math.floor(Math.random()*challenges.length)];
-}
-newDailyChallenge();
-
+dailyChallenge.innerText=challenges[0];
 </script>
 
 </body>
