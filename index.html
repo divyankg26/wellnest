@@ -203,7 +203,7 @@ button{
 <div id="signInModal">
   <div class="modal-content">
     <h2 id="modalTitle">Welcome to NovaFix 🌟</h2>
-    <input id="usernameInput" placeholder="Enter username">
+    <input id="emailInput" type="email" placeholder="Enter email">
     <input id="passwordInput" type="password" placeholder="Enter password">
     <button id="actionButton" onclick="handleAuth()">Sign In</button>
     <p onclick="toggleAuth()"><span id="toggleText">Don't have an account? Sign Up</span></p>
@@ -214,7 +214,7 @@ button{
 <header>
   <h1>NovaFix</h1>
   <p>Mind • Body • Money • Music • Productivity</p>
-  <button id="signOutBtn" onclick="signOut()">Sign Out</button>
+<button id="signOutBtn" onclick="signOutUser()">Sign Out</button>
 </header>
 
 <div class="dashboard">
@@ -329,37 +329,110 @@ button{
 
 </div>
 
-<script>
-async function hashPassword(password) {
-  const encoder = new TextEncoder();
-  const data = encoder.encode(password);
-  const hashBuffer = await crypto.subtle.digest("SHA-256", data);
-  return Array.from(new Uint8Array(hashBuffer))
-    .map(b => b.toString(16).padStart(2, "0"))
-    .join("");
-}
+<script type="module">
+  // 🔥 Firebase Imports
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+import { getAnalytics } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-analytics.js";
+import { 
+  getAuth, 
+  createUserWithEmailAndPassword, 
+  signInWithEmailAndPassword, 
+  onAuthStateChanged, 
+  signOut 
+} from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
 
-// ---------- SPLASH ----------
+// 🔥 Your Firebase Config
+const firebaseConfig = {
+  apiKey: "AIzaSyCirCkRGlsODEExB9VLVY08Zw7b84zm_Qc",
+  authDomain: "novaafix-86912.firebaseapp.com",
+  projectId: "novaafix-86912",
+  storageBucket: "novaafix-86912.firebasestorage.app",
+  messagingSenderId: "699084708640",
+  appId: "1:699084708640:web:401f5d6990d818551e1545",
+  measurementId: "G-WHHXFW3N7R"
+};
+
+// 🔥 Initialize Firebase
+const app = initializeApp(firebaseConfig);
+let analytics = null;
+try {
+  analytics = getAnalytics(app);
+} catch (_) {}
+const auth = getAuth(app);
+
+// ---------- DOM REFERENCES ----------
+const emailInput = document.getElementById("emailInput");
+const passwordInput = document.getElementById("passwordInput");
 const splash = document.getElementById("splash");
 const signInModal = document.getElementById("signInModal");
 const dashboard = document.querySelector(".dashboard");
 const signOutBtn = document.getElementById("signOutBtn");
-document.body.style.overflow = "hidden";
+const chat = document.getElementById("chat");
+const aiInput = document.getElementById("aiInput");
+const reminderText = document.getElementById("reminderText");
+const reminderMinutes = document.getElementById("reminderMinutes");
+const reminders = document.getElementById("reminders");
+const task = document.getElementById("task");
+const taskList = document.getElementById("taskList");
+const gCost = document.getElementById("gCost");
+const gMonths = document.getElementById("gMonths");
+const buffer = document.getElementById("buffer");
+const financeResult = document.getElementById("financeResult");
+const mood = document.getElementById("mood");
+const moodLogs = document.getElementById("moodLogs");
+const waterGoalInput = document.getElementById("waterGoalInput");
+const waterInput = document.getElementById("waterInput");
+const waterProgress = document.getElementById("waterProgress");
+const sleepInput = document.getElementById("sleepInput");
+const sleepResult = document.getElementById("sleepResult");
+const futureTask = document.getElementById("futureTask");
+const timeMirror = document.getElementById("timeMirror");
+const quoteDisplay = document.getElementById("quoteDisplay");
+const gratitudeInput = document.getElementById("gratitudeInput");
+const gratitudeLogs = document.getElementById("gratitudeLogs");
 
-setTimeout(() => {
+// ---------- SPLASH + AUTH CHECK ----------
+document.body.style.overflow = "hidden";
+let splashRemoved = false;
+
+function hideSplash() {
+  if (splashRemoved || !splash) return;
   splash.classList.add("hide");
   setTimeout(() => {
-    splash.remove();
-    document.body.style.overflow = "auto";
-    const savedUser = localStorage.getItem("novafixUser");
-    if(savedUser){
-      dashboard.style.display="grid";
-      signOutBtn.style.display="block";
-    } else {
-      signInModal.style.display="flex";
+    if (!splashRemoved) {
+      splash.remove();
+      splashRemoved = true;
+      document.body.style.overflow = "auto";
     }
-  },1000);
-},3000);
+  }, 1000);
+}
+
+try {
+  onAuthStateChanged(auth, (user) => {
+    hideSplash();
+
+    setTimeout(() => {
+      if (user) {
+        dashboard.style.display = "grid";
+        signOutBtn.style.display = "block";
+        signInModal.style.display = "none";
+      } else {
+        signInModal.style.display = "flex";
+        dashboard.style.display = "none";
+        signOutBtn.style.display = "none";
+      }
+    }, 1000); // match your splash transition
+  });
+} catch (_) {
+  setTimeout(() => {
+    hideSplash();
+    signInModal.style.display = "flex";
+    dashboard.style.display = "none";
+    signOutBtn.style.display = "none";
+  }, 1000);
+}
+
+setTimeout(hideSplash, 2000);
 
 // ---------- COLOR WAVES ----------
 const waves = [
@@ -400,59 +473,31 @@ function toggleAuth(){
   }
 }
 
-async function handleAuth(){
-  const username = usernameInput.value.trim();
+async function handleAuth() {
+  const email = emailInput.value.trim();
   const password = passwordInput.value.trim();
   const error = document.getElementById("signInError");
 
-  if(!username || !password){
+  if (!email || !password) {
     error.style.display = "block";
-    error.innerText = "Username or password cannot be empty!";
+    error.innerText = "Email and password are required!";
     return;
   }
 
-  const users = JSON.parse(localStorage.getItem("novafixUsers") || "{}");
-  const hashedPassword = await hashPassword(password);
-
-  if(authMode === "signup"){
-    if(users[username]){
-      error.style.display = "block";
-      error.innerText = "Username already exists!";
-      return;
+  try {
+    if (authMode === "signup") {
+      await createUserWithEmailAndPassword(auth, email, password);
+    } else {
+      await signInWithEmailAndPassword(auth, email, password);
     }
-
-    users[username] = hashedPassword;
-    localStorage.setItem("novafixUsers", JSON.stringify(users));
-    localStorage.setItem("novafixUser", username);
-    loginSuccess(username);
-
-  } else {
-    if(!users[username] || users[username] !== hashedPassword){
-      error.style.display = "block";
-      error.innerText = "Incorrect username or password!";
-      return;
-    }
-
-    localStorage.setItem("novafixUser", username);
-    loginSuccess(username);
+  } catch (err) {
+    error.style.display = "block";
+    error.innerText = err.message;
   }
 }
 
-function loginSuccess(username){
-  signInModal.style.display="none";
-  dashboard.style.display="grid";
-  signOutBtn.style.display="block";
-  alert(`Welcome, ${username}! 🌟`);
-}
-
-function signOut(){
-  localStorage.removeItem("novafixUser");
-  signInModal.style.display="flex";
-  dashboard.style.display="none";
-  signOutBtn.style.display="none";
-  authMode="signin";
-  toggleAuth();
-  alert("You have been signed out!");
+function signOutUser() {
+  signOut(auth);
 }
 
 // ---------- DASHBOARD JS ----------
@@ -465,7 +510,7 @@ function aiChat(){
   let msg=input.toLowerCase();
   let response="";
   if(msg.match(/hi|hello|hey/)) {
-    const currentUser = localStorage.getItem("novafixUser") || "there";
+    const currentUser = auth.currentUser?.email || "there";
     response = `Hey there! What's up, ${currentUser}? 😊`;
 }
   else if(msg.match(/who are you/)) response="I am your NovaFix wellness companion 🌱";
@@ -600,7 +645,24 @@ function completeChallenge() {
   challengeResultElement.innerText = "✅ Challenge completed! Great job!";
 }
 
+Object.assign(window, {
+  handleAuth,
+  toggleAuth,
+  signOutUser,
+  aiChat,
+  addReminder,
+  addTask,
+  calculateFinance,
+  saveMood,
+  setWaterGoal,
+  saveWater,
+  saveSleep,
+  timeTraveller,
+  newQuote,
+  saveGratitude,
+  completeChallenge
+});
+
 </script>
 </body>
 </html>
-
