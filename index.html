@@ -502,7 +502,7 @@ button{
 <script type="module">
   // 🔥 Firebase Imports
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
-import { getFirestore, collection, addDoc, getDocs, serverTimestamp, deleteDoc, doc, updateDoc, setDoc, getDoc } 
+import { initializeFirestore, persistentLocalCache, getFirestore, collection, addDoc, getDocs, serverTimestamp, deleteDoc, doc, updateDoc, setDoc, getDoc } 
 from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 import { getAnalytics } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-analytics.js";
 import { 
@@ -513,7 +513,8 @@ import {
   signOut,
   updateProfile,
   GoogleAuthProvider,
-  signInWithPopup
+  signInWithPopup,
+  sendEmailVerification
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
 
 // 🔥 Your Firebase Config
@@ -534,7 +535,14 @@ try {
   analytics = getAnalytics(app);
 } catch (_) {}
 const auth = getAuth(app);
-const db = getFirestore(app);
+let db;
+try {
+  db = initializeFirestore(app, {
+    localCache: persistentLocalCache()
+  });
+} catch (_) {
+  db = getFirestore(app);
+}
 const googleProvider = new GoogleAuthProvider();
 
 // ---------- DOM REFERENCES ----------
@@ -607,13 +615,26 @@ try {
   onAuthStateChanged(auth, (user) => {
     hideSplash();
 
-    setTimeout(() => {
+    setTimeout(async () => {
       if (user) {
+        const isEmailPasswordUser = user.providerData.some((provider) => provider.providerId === "password");
+        if (isEmailPasswordUser && !user.emailVerified) {
+          const error = document.getElementById("signInError");
+          try {
+            await sendEmailVerification(user);
+          } catch (_) {}
+          await signOut(auth);
+          error.style.display = "block";
+          error.innerText = "Please verify your email before signing in. A new verification email has been sent.";
+          return;
+        }
+
         dashboard.style.display = "grid";
         signOutBtn.style.display = "block";
         signInModal.style.display = "none";
         loadDailyChallenge(user.uid);
         loadMoods(user.uid);
+        loadAiUsage(user.uid);
         loadAiChats(user.uid);
         loadTasks(user.uid);
         loadWaterData(user.uid);
@@ -647,6 +668,8 @@ try {
         dailyChallengeCompleted = false;
         currentChallengeDateKey = "";
         waterGoal = 0;
+        aiUsageDateKeyGMT = "";
+        aiUsageCount = 0;
         waterGoalInput.value = "";
       }
     }, 1000); // match your splash transition
@@ -727,8 +750,22 @@ async function handleAuth() {
     if (authMode === "signup") {
       const userCredential = await createUserWithEmailAndPassword(auth, email, password);
       await updateProfile(userCredential.user, { displayName: username });
+      await sendEmailVerification(userCredential.user);
+      await signOut(auth);
+      error.style.display = "block";
+      error.innerText = "Verification email sent. Please verify your email, then sign in.";
+      return;
     } else {
-      await signInWithEmailAndPassword(auth, email, password);
+      const userCredential = await signInWithEmailAndPassword(auth, email, password);
+      if (!userCredential.user.emailVerified) {
+        try {
+          await sendEmailVerification(userCredential.user);
+        } catch (_) {}
+        await signOut(auth);
+        error.style.display = "block";
+        error.innerText = "Please verify your email before signing in. A new verification email has been sent.";
+        return;
+      }
     }
   } catch (err) {
     error.style.display = "block";
@@ -778,6 +815,20 @@ let currentChallengeDateKey="";
 let challengeWatcherInterval=null;
 let insightsPersistTimer=null;
 const userTimeZone = Intl.DateTimeFormat().resolvedOptions().timeZone || "local";
+const FIRESTORE_CRASH_MESSAGE = "Something went wrong. Please try again later.";
+const AI_DAILY_LIMIT = 20;
+let aiUsageDateKeyGMT = "";
+let aiUsageCount = 0;
+let lastFirestoreErrorAlertAt = 0;
+
+function notifyFirestoreError(err) {
+  console.error("Firestore operation failed:", err);
+  const now = Date.now();
+  if (now - lastFirestoreErrorAlertAt > 4000) {
+    alert(FIRESTORE_CRASH_MESSAGE);
+    lastFirestoreErrorAlertAt = now;
+  }
+}
 
 function dateToKey(dateValue) {
   const date = dateValue instanceof Date ? dateValue : new Date(dateValue);
@@ -838,7 +889,7 @@ function queueInsightsPersist(payload) {
         updatedAt: serverTimestamp()
       }, { merge: true });
     } catch (err) {
-      console.error("Failed to persist insights:", err);
+      notifyFirestoreError(err);
     }
   }, 350);
 }
@@ -851,6 +902,53 @@ function getTodayKey() {
     day: "2-digit"
   });
   return formatter.format(new Date());
+}
+
+function getTodayKeyGMT() {
+  return new Date().toISOString().slice(0, 10);
+}
+
+async function saveAiUsage(userId) {
+  try {
+    await setDoc(doc(db, "users", userId, "settings", "aiUsage"), {
+      dateKeyGMT: aiUsageDateKeyGMT,
+      count: aiUsageCount,
+      updatedAt: serverTimestamp()
+    }, { merge: true });
+  } catch (err) {
+    notifyFirestoreError(err);
+  }
+}
+
+async function loadAiUsage(userId) {
+  aiUsageDateKeyGMT = getTodayKeyGMT();
+  aiUsageCount = 0;
+
+  try {
+    const snapshot = await getDoc(doc(db, "users", userId, "settings", "aiUsage"));
+    if (snapshot.exists()) {
+      const data = snapshot.data();
+      if (data.dateKeyGMT === aiUsageDateKeyGMT) {
+        aiUsageCount = Number(data.count) || 0;
+      } else {
+        aiUsageCount = 0;
+        await saveAiUsage(userId);
+      }
+    } else {
+      await saveAiUsage(userId);
+    }
+  } catch (err) {
+    notifyFirestoreError(err);
+  }
+}
+
+async function ensureAiUsageCurrent(userId) {
+  const todayKeyGMT = getTodayKeyGMT();
+  if (aiUsageDateKeyGMT !== todayKeyGMT) {
+    aiUsageDateKeyGMT = todayKeyGMT;
+    aiUsageCount = 0;
+    await saveAiUsage(userId);
+  }
 }
 
 function startDailyChallengeWatcher() {
@@ -1293,8 +1391,7 @@ async function editChatMessage(chatId, fieldName, textNode, role) {
     if (fieldName === "aiResponse") payload.aiResponseIsHtml = false;
     await updateDoc(doc(db, "users", user.uid, "aiChats", chatId), payload);
   } catch (err) {
-    console.error("Failed to edit chat message:", err);
-    alert(`Could not save edit: ${err.message || "Unknown error"}`);
+    notifyFirestoreError(err);
   }
 }
 
@@ -1322,7 +1419,7 @@ async function loadAiChats(userId) {
       renderChatPair(entry);
     });
   } catch (err) {
-    console.error("Failed to load AI chat logs:", err);
+    notifyFirestoreError(err);
   }
 }
 
@@ -1339,7 +1436,7 @@ async function storeAiChat(userId, userMessage, aiResponse, aiResponseIsHtml) {
     );
     return ref.id;
   } catch (err) {
-    console.error("Failed to store AI chat:", err);
+    notifyFirestoreError(err);
     return null;
   }
 }
@@ -1355,8 +1452,7 @@ async function clearAiChats() {
     chat.innerHTML = "";
     aiRecentPrompts.length = 0;
   } catch (err) {
-    console.error("Failed to clear AI chats:", err);
-    alert(`Could not clear chats: ${err.message || "Unknown error"}`);
+    notifyFirestoreError(err);
   }
 }
 
@@ -1366,6 +1462,13 @@ async function aiChat(){
   const user = auth.currentUser;
   if (!user) {
     alert("Please sign in first.");
+    return;
+  }
+
+  await ensureAiUsageCurrent(user.uid);
+  if (aiUsageCount >= AI_DAILY_LIMIT) {
+    renderChatMessage("ai", "Daily AI limit reached", false, null, null);
+    aiInput.value = "";
     return;
   }
 
@@ -1381,6 +1484,8 @@ async function aiChat(){
     aiResponse: response,
     aiResponseIsHtml: responseIsHtml
   });
+  aiUsageCount += 1;
+  await saveAiUsage(user.uid);
   aiInput.value="";
 }
 
@@ -1435,8 +1540,7 @@ function renderTask(entry) {
     try {
       await updateDoc(doc(db, "users", user.uid, "tasks", entry.id), { completed: entry.completed });
     } catch (err) {
-      console.error("Failed to toggle task:", err);
-      alert(`Could not update task status: ${err.message || "Unknown error"}`);
+      notifyFirestoreError(err);
     }
   };
 
@@ -1452,8 +1556,7 @@ function renderTask(entry) {
     try {
       await updateDoc(doc(db, "users", user.uid, "tasks", entry.id), { text: newText.trim() });
     } catch (err) {
-      console.error("Failed to edit task:", err);
-      alert(`Could not update task: ${err.message || "Unknown error"}`);
+      notifyFirestoreError(err);
     }
   };
 
@@ -1475,8 +1578,7 @@ function renderTask(entry) {
       updateInsights();
       li.remove();
     } catch (err) {
-      console.error("Failed to delete task:", err);
-      alert(`Could not delete task: ${err.message || "Unknown error"}`);
+      notifyFirestoreError(err);
     }
   };
 
@@ -1506,7 +1608,7 @@ async function loadTasks(userId) {
     });
     updateInsights();
   } catch (err) {
-    console.error("Failed to load tasks:", err);
+    notifyFirestoreError(err);
   }
 }
 
@@ -1532,8 +1634,7 @@ async function addTask(){
     updateInsights();
     task.value="";
   } catch (err) {
-    console.error("Failed to save task:", err);
-    alert(`Could not save task: ${err.message || "Unknown error"}`);
+    notifyFirestoreError(err);
   }
 }
 
@@ -1577,8 +1678,7 @@ async function deleteMoodLog(moodId, moodElement, moodValue) {
     const moodIndex = moodHistory.findIndex((m) => m === moodValue);
     if (moodIndex >= 0) moodHistory.splice(moodIndex, 1);
   } catch (err) {
-    console.error("Failed to remove mood:", err);
-    alert(`Could not remove mood: ${err.message || "Unknown error"}`);
+    notifyFirestoreError(err);
   }
 }
 
@@ -1605,7 +1705,7 @@ async function loadMoods(userId) {
     });
     updateInsights();
   } catch (err) {
-    console.error("Failed to load mood logs:", err);
+    notifyFirestoreError(err);
   }
 }
 
@@ -1634,8 +1734,7 @@ async function saveMood() {
     renderMoodLog({ id: moodRef.id, mood: moodValue, time: new Date() });
     updateInsights();
   } catch (err) {
-    console.error("Firestore write failed:", err);
-    alert(`Could not save mood: ${err.message || "Unknown error"}`);
+    notifyFirestoreError(err);
   }
 }
 
@@ -1663,8 +1762,7 @@ async function setWaterGoal(){
   try {
     await setDoc(doc(db, "users", user.uid, "settings", "water"), { goal: waterGoal }, { merge: true });
   } catch (err) {
-    console.error("Failed to save water goal:", err);
-    alert(`Could not save water goal: ${err.message || "Unknown error"}`);
+    notifyFirestoreError(err);
   }
 }
 
@@ -1696,7 +1794,7 @@ async function loadWaterData(userId) {
 
     updateWaterProgress();
   } catch (err) {
-    console.error("Failed to load water intake:", err);
+    notifyFirestoreError(err);
   }
 }
 
@@ -1721,8 +1819,7 @@ async function saveWater() {
     updateWaterProgress();
     waterInput.value = "";
   } catch (err) {
-    console.error("Failed to save water intake:", err);
-    alert(`Could not save water intake: ${err.message || "Unknown error"}`);
+    notifyFirestoreError(err);
   }
 }
 
@@ -1756,7 +1853,7 @@ async function loadSleepData(userId) {
     }
     updateInsights();
   } catch (err) {
-    console.error("Failed to load sleep logs:", err);
+    notifyFirestoreError(err);
   }
 }
 
@@ -1782,8 +1879,7 @@ async function saveSleep(){
     });
     sleepInput.value = "";
   } catch (err) {
-    console.error("Failed to save sleep log:", err);
-    alert(`Could not save sleep log: ${err.message || "Unknown error"}`);
+    notifyFirestoreError(err);
   }
 }
 
@@ -1822,8 +1918,7 @@ function renderGratitude(entry) {
       if (listIndex >= 0) gratitudeEntries[listIndex].text = entry.text;
       updateInsights();
     } catch (err) {
-      console.error("Failed to edit gratitude log:", err);
-      alert(`Could not update gratitude log: ${err.message || "Unknown error"}`);
+      notifyFirestoreError(err);
     }
   };
 
@@ -1846,8 +1941,7 @@ function renderGratitude(entry) {
       updateInsights();
       row.remove();
     } catch (err) {
-      console.error("Failed to delete gratitude log:", err);
-      alert(`Could not delete gratitude log: ${err.message || "Unknown error"}`);
+      notifyFirestoreError(err);
     }
   };
 
@@ -1875,7 +1969,7 @@ async function loadGratitude(userId) {
     });
     updateInsights();
   } catch (err) {
-    console.error("Failed to load gratitude logs:", err);
+    notifyFirestoreError(err);
   }
 }
 
@@ -1900,8 +1994,7 @@ async function saveGratitude(){
     updateInsights();
     gratitudeInput.value="";
   } catch (err) {
-    console.error("Failed to save gratitude log:", err);
-    alert(`Could not save gratitude log: ${err.message || "Unknown error"}`);
+    notifyFirestoreError(err);
   }
 }
 
@@ -1963,8 +2056,7 @@ async function exportAllData() {
     link.remove();
     URL.revokeObjectURL(url);
   } catch (err) {
-    console.error("Failed to export data:", err);
-    alert(`Could not export data: ${err.message || "Unknown error"}`);
+    notifyFirestoreError(err);
   }
 }
 
@@ -2114,8 +2206,7 @@ async function importDataFileChange(event) {
 
     alert("✅ Data import complete.");
   } catch (err) {
-    console.error("Failed to import data:", err);
-    alert(`Could not import data: ${err.message || "Unknown error"}`);
+    notifyFirestoreError(err);
   } finally {
     event.target.value = "";
   }
@@ -2171,7 +2262,7 @@ async function saveDailyChallengeState() {
       }, { merge: true });
     }
   } catch (err) {
-    console.error("Failed to save daily challenge state:", err);
+    notifyFirestoreError(err);
   }
 }
 
@@ -2220,7 +2311,7 @@ async function loadDailyChallenge(userId) {
     await saveDailyChallengeState();
     updateInsights();
   } catch (err) {
-    console.error("Failed to load daily challenge:", err);
+    notifyFirestoreError(err);
     pickDailyChallenge();
   }
 }
