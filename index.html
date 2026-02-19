@@ -110,10 +110,6 @@ body{
 }
 .modal-content p {margin-top: 10px; font-size: 14px; cursor: pointer;}
 
-.apple-btn{
-  background: rgba(255,255,255,0.22) !important;
-}
-
 /* HEADER */
 header{
   text-align:center;
@@ -350,7 +346,6 @@ button{
     <input id="passwordInput" type="password" placeholder="Enter password">
     <button id="actionButton" onclick="handleAuth()">Sign In</button>
     <button id="googleAuthButton" class="google-btn" onclick="handleGoogleAuth()">Sign In with Google</button>
-    <button id="appleAuthButton" class="apple-btn" onclick="handleAppleAuth()">Sign In with Apple</button>
     <p onclick="toggleAuth()"><span id="toggleText">Don't have an account? Sign Up</span></p>
     <p id="signInError" style="color:red; display:none;">Error message here!</p>
   </div>
@@ -539,7 +534,6 @@ import {
   signOut,
   updateProfile,
   GoogleAuthProvider,
-  OAuthProvider,
   signInWithPopup
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
 
@@ -573,16 +567,12 @@ const googleProvider = new GoogleAuthProvider();
 googleProvider.setCustomParameters({
   prompt: "select_account"
 });
-const appleProvider = new OAuthProvider("apple.com");
-appleProvider.addScope("email");
-appleProvider.addScope("name");
 
 // ---------- DOM REFERENCES ----------
 const emailInput = document.getElementById("emailInput");
 const passwordInput = document.getElementById("passwordInput");
 const usernameInput = document.getElementById("usernameInput");
 const googleAuthButton = document.getElementById("googleAuthButton");
-const appleAuthButton = document.getElementById("appleAuthButton");
 const splash = document.getElementById("splash");
 const signInModal = document.getElementById("signInModal");
 const dashboard = document.querySelector(".dashboard");
@@ -741,14 +731,12 @@ function toggleAuth(){
     title.innerText="Create a NovaFix Account 🌟";
     button.innerText="Sign Up";
     googleAuthButton.innerText = "Sign Up with Google";
-    appleAuthButton.innerText = "Sign Up with Apple";
     toggleText.innerText="Already have an account? Sign In";
     usernameInput.style.display = "block";
   } else {
     title.innerText="Welcome to NovaFix 🌟";
     button.innerText="Sign In";
     googleAuthButton.innerText = "Sign In with Google";
-    appleAuthButton.innerText = "Sign In with Apple";
     toggleText.innerText="Don't have an account? Sign Up";
     usernameInput.style.display = "none";
   }
@@ -810,48 +798,6 @@ async function handleGoogleAuth() {
     error.innerText = isUnauthorizedDomain
       ? `Unauthorized domain. Current origin: ${currentOrigin}. Add '${currentHost}' in Firebase Auth > Settings > Authorized domains, then hard refresh.`
       : (err.message || "Google authentication failed.");
-  }
-}
-
-async function handleAppleAuth() {
-  const error = document.getElementById("signInError");
-  error.style.display = "none";
-
-  if (window.location.protocol === "file:") {
-    error.style.display = "block";
-    error.innerText = "Apple auth does not work on file://. Start a local server and open via http://localhost:<port>.";
-    return;
-  }
-
-  try {
-    await signInWithPopup(auth, appleProvider);
-  } catch (err) {
-    const code = err?.code || "";
-    const currentOrigin = window.location.origin || "unknown-origin";
-    const currentHost = window.location.hostname || "unknown-host";
-
-    error.style.display = "block";
-    if (code.includes("operation-not-allowed")) {
-      error.innerText = "Apple sign-in is not enabled. In Firebase Console > Authentication > Sign-in method, enable Apple and complete Service ID/Team ID/Key ID/private key setup.";
-      return;
-    }
-
-    if (code.includes("unauthorized-domain")) {
-      error.innerText = `Unauthorized domain for Apple sign-in. Current origin: ${currentOrigin}. Add '${currentHost}' in Firebase Auth > Settings > Authorized domains.`;
-      return;
-    }
-
-    if (code.includes("popup-blocked")) {
-      error.innerText = "Popup blocked by browser. Allow popups for this site and try again.";
-      return;
-    }
-
-    if (code.includes("popup-closed-by-user")) {
-      error.innerText = "Apple sign-in popup was closed before completion.";
-      return;
-    }
-
-    error.innerText = err.message || "Apple authentication failed.";
   }
 }
 
@@ -2520,8 +2466,7 @@ Object.assign(window, {
   exportAllData,
   startImportData,
   importDataFileChange,
-  handleGoogleAuth,
-  handleAppleAuth
+  handleGoogleAuth
 });
 
 </script>
