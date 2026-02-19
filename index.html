@@ -190,7 +190,8 @@ button{
 }
 
 #taskList button,
-#gratitudeLogs button{
+#gratitudeLogs button,
+#reminders button{
   margin-left:12px;
 }
 
@@ -543,6 +544,9 @@ try {
   db = getFirestore(app);
 }
 const googleProvider = new GoogleAuthProvider();
+googleProvider.setCustomParameters({
+  prompt: "select_account"
+});
 
 // ---------- DOM REFERENCES ----------
 const emailInput = document.getElementById("emailInput");
@@ -624,6 +628,7 @@ try {
         loadAiUsage(user.uid);
         loadAiChats(user.uid);
         loadTasks(user.uid);
+        loadReminders(user.uid);
         loadWaterData(user.uid);
         loadSleepData(user.uid);
         loadGratitude(user.uid);
@@ -636,7 +641,9 @@ try {
         moodLogs.innerHTML = "";
         chat.innerHTML = "";
         taskList.innerHTML = "";
+        reminders.innerHTML = "";
         gratitudeLogs.innerHTML = "";
+        clearAllReminderTimers();
         waterProgress.innerText = "";
         sleepResult.innerText = "";
         wellnessScoreEl.innerText = "0/100";
@@ -794,6 +801,7 @@ const AI_DAILY_LIMIT = 20;
 let aiUsageDateKeyGMT = "";
 let aiUsageCount = 0;
 let lastFirestoreErrorAlertAt = 0;
+const reminderIntervals = new Map();
 
 function notifyFirestoreError(err) {
   console.error("Firestore operation failed:", err);
@@ -1464,30 +1472,122 @@ async function aiChat(){
 }
 
 // Reminders
-function addReminder() {
+function clearReminderTimer(reminderId) {
+  const timerId = reminderIntervals.get(reminderId);
+  if (timerId) {
+    clearInterval(timerId);
+    reminderIntervals.delete(reminderId);
+  }
+}
+
+function clearAllReminderTimers() {
+  reminderIntervals.forEach((timerId) => clearInterval(timerId));
+  reminderIntervals.clear();
+}
+
+function renderReminder(entry) {
+  const li = document.createElement("li");
+  li.style.display = "flex";
+  li.style.justifyContent = "space-between";
+  li.style.alignItems = "center";
+  li.style.gap = "8px";
+
+  const label = document.createElement("span");
+  const reminderTextValue = entry.text || "Reminder";
+  const reminderMinutes = Number(entry.minutes) || 0;
+  const targetAtMs = Number(entry.targetAtMs) || (Date.now() + reminderMinutes * 60000);
+
+  const deleteBtn = document.createElement("button");
+  deleteBtn.textContent = "Delete";
+  deleteBtn.onclick = async () => {
+    const user = auth.currentUser;
+    clearReminderTimer(entry.id);
+
+    if (user && entry.id) {
+      try {
+        await deleteDoc(doc(db, "users", user.uid, "reminders", entry.id));
+      } catch (err) {
+        notifyFirestoreError(err);
+      }
+    }
+    li.remove();
+  };
+
+  const setLabelText = (secondsLeft) => {
+    if (secondsLeft <= 0) {
+      label.textContent = `${reminderTextValue} – Time's up!`;
+      return;
+    }
+    const mins = Math.floor(secondsLeft / 60);
+    const secs = secondsLeft % 60;
+    label.textContent = `${reminderTextValue} – ${mins}m ${secs}s`;
+  };
+
+  let secondsRemaining = Math.max(0, Math.ceil((targetAtMs - Date.now()) / 1000));
+  setLabelText(secondsRemaining);
+
+  if (secondsRemaining > 0) {
+    const audio = document.getElementById("reminderSound");
+    const timer = setInterval(() => {
+      secondsRemaining -= 1;
+      if (secondsRemaining <= 0) {
+        clearReminderTimer(entry.id);
+        setLabelText(0);
+        if (audio) audio.play();
+        return;
+      }
+      setLabelText(secondsRemaining);
+    }, 1000);
+    if (entry.id) reminderIntervals.set(entry.id, timer);
+  }
+
+  li.append(label, deleteBtn);
+  reminders.appendChild(li);
+}
+
+async function loadReminders(userId) {
+  reminders.innerHTML = "";
+  clearAllReminderTimers();
+
+  try {
+    const snapshot = await getDocs(collection(db, "users", userId, "reminders"));
+    const docs = snapshot.docs
+      .map((docSnap) => ({ id: docSnap.id, ...docSnap.data() }))
+      .sort((a, b) => (Number(a.targetAtMs) || 0) - (Number(b.targetAtMs) || 0));
+
+    docs.forEach((entry) => renderReminder(entry));
+  } catch (err) {
+    notifyFirestoreError(err);
+  }
+}
+
+async function addReminder() {
+  const user = auth.currentUser;
+  if (!user) {
+    alert("Please sign in first.");
+    return;
+  }
+
   const t = reminderText.value.trim();
   const m = +reminderMinutes.value;
   if (!t || m <= 0) return;
 
-  const li = document.createElement("li");
-  reminders.appendChild(li);
-  let s = m * 60;
+  const targetAtMs = Date.now() + (m * 60 * 1000);
 
-  const audio = document.getElementById("reminderSound");
+  try {
+    const ref = await addDoc(collection(db, "users", user.uid, "reminders"), {
+      text: t,
+      minutes: m,
+      targetAtMs,
+      createdAt: serverTimestamp()
+    });
 
-  const i = setInterval(() => {
-    if (s <= 0) {
-      clearInterval(i);
-      li.textContent = `${t} – Time's up!`;
-      if(audio) audio.play(); // 🔊 Play your custom sound
-      return;
-    }
-    li.textContent = `${t} – ${Math.floor(s / 60)}m ${s % 60}s`;
-    s--;
-  }, 1000);
-
-  reminderText.value = "";
-  reminderMinutes.value = "";
+    renderReminder({ id: ref.id, text: t, minutes: m, targetAtMs });
+    reminderText.value = "";
+    reminderMinutes.value = "";
+  } catch (err) {
+    notifyFirestoreError(err);
+  }
 }
 
 // Tasks
