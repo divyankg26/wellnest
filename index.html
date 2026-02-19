@@ -186,6 +186,72 @@ button{
   margin-top:8px;
 }
 
+#taskList button,
+#gratitudeLogs button{
+  margin-left:12px;
+}
+
+.ai-header-row{
+  display:flex;
+  justify-content:space-between;
+  align-items:center;
+  gap:10px;
+}
+
+.ai-header-row h2{margin:0}
+
+.ai-clear-btn{
+  padding:6px 10px;
+  border-radius:10px;
+  font-size:12px;
+}
+
+.chat-message{
+  display:flex;
+  justify-content:space-between;
+  align-items:flex-start;
+  gap:8px;
+  margin-bottom:8px;
+  padding:8px 10px;
+  border-radius:10px;
+  background:rgba(255,255,255,.12);
+}
+
+.chat-text{
+  font-size:14px;
+  line-height:1.35;
+  word-break:break-word;
+}
+
+.chat-edit-btn{
+  padding:6px 10px;
+  border-radius:10px;
+  font-size:12px;
+  white-space:nowrap;
+}
+
+.mood-item{
+  display:flex;
+  justify-content:space-between;
+  align-items:center;
+  gap:10px;
+  margin-bottom:8px;
+  padding:8px 10px;
+  border-radius:10px;
+  background:rgba(255,255,255,.12);
+}
+
+.mood-item span{
+  font-size:14px;
+}
+
+.mood-remove{
+  padding:6px 10px;
+  border-radius:10px;
+  border:none;
+  font-size:12px;
+}
+
 ::-webkit-scrollbar{width:6px}
 ::-webkit-scrollbar-thumb{background:var(--primary);border-radius:3px}
 </style>
@@ -203,6 +269,7 @@ button{
 <div id="signInModal">
   <div class="modal-content">
     <h2 id="modalTitle">Welcome to NovaFix 🌟</h2>
+    <input id="usernameInput" type="text" placeholder="Enter username" style="display:none;">
     <input id="emailInput" type="email" placeholder="Enter email">
     <input id="passwordInput" type="password" placeholder="Enter password">
     <button id="actionButton" onclick="handleAuth()">Sign In</button>
@@ -221,7 +288,10 @@ button{
 
 <!-- AI Companion -->
 <div class="card">
+<div class="ai-header-row">
 <h2>🤖 AI Companion</h2>
+<button class="ai-clear-btn" onclick="clearAiChats()">Clear</button>
+</div>
 <div class="chat" id="chat"></div>
 <div class="input-group">
 <input id="aiInput" placeholder="Talk to AI">
@@ -332,13 +402,16 @@ button{
 <script type="module">
   // 🔥 Firebase Imports
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+import { getFirestore, collection, addDoc, getDocs, serverTimestamp, deleteDoc, doc, updateDoc, setDoc, getDoc } 
+from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 import { getAnalytics } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-analytics.js";
 import { 
   getAuth, 
   createUserWithEmailAndPassword, 
   signInWithEmailAndPassword, 
   onAuthStateChanged, 
-  signOut 
+  signOut,
+  updateProfile 
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
 
 // 🔥 Your Firebase Config
@@ -359,10 +432,12 @@ try {
   analytics = getAnalytics(app);
 } catch (_) {}
 const auth = getAuth(app);
+const db = getFirestore(app);
 
 // ---------- DOM REFERENCES ----------
 const emailInput = document.getElementById("emailInput");
 const passwordInput = document.getElementById("passwordInput");
+const usernameInput = document.getElementById("usernameInput");
 const splash = document.getElementById("splash");
 const signInModal = document.getElementById("signInModal");
 const dashboard = document.querySelector(".dashboard");
@@ -416,10 +491,27 @@ try {
         dashboard.style.display = "grid";
         signOutBtn.style.display = "block";
         signInModal.style.display = "none";
+        loadMoods(user.uid);
+        loadAiChats(user.uid);
+        loadTasks(user.uid);
+        loadWaterData(user.uid);
+        loadSleepData(user.uid);
+        loadGratitude(user.uid);
       } else {
         signInModal.style.display = "flex";
         dashboard.style.display = "none";
         signOutBtn.style.display = "none";
+        moodLogs.innerHTML = "";
+        chat.innerHTML = "";
+        taskList.innerHTML = "";
+        gratitudeLogs.innerHTML = "";
+        waterProgress.innerText = "";
+        sleepResult.innerText = "";
+        moodHistory.length = 0;
+        waterHistory.length = 0;
+        sleepHistory.length = 0;
+        waterGoal = 0;
+        waterGoalInput.value = "";
       }
     }, 1000); // match your splash transition
   });
@@ -466,14 +558,17 @@ function toggleAuth(){
     title.innerText="Create a NovaFix Account 🌟";
     button.innerText="Sign Up";
     toggleText.innerText="Already have an account? Sign In";
+    usernameInput.style.display = "block";
   } else {
     title.innerText="Welcome to NovaFix 🌟";
     button.innerText="Sign In";
     toggleText.innerText="Don't have an account? Sign Up";
+    usernameInput.style.display = "none";
   }
 }
 
 async function handleAuth() {
+  const username = usernameInput.value.trim();
   const email = emailInput.value.trim();
   const password = passwordInput.value.trim();
   const error = document.getElementById("signInError");
@@ -484,9 +579,16 @@ async function handleAuth() {
     return;
   }
 
+  if (authMode === "signup" && !username) {
+    error.style.display = "block";
+    error.innerText = "Username is required for sign up!";
+    return;
+  }
+
   try {
     if (authMode === "signup") {
-      await createUserWithEmailAndPassword(auth, email, password);
+      const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+      await updateProfile(userCredential.user, { displayName: username });
     } else {
       await signInWithEmailAndPassword(auth, email, password);
     }
@@ -504,20 +606,158 @@ function signOutUser() {
 const moodHistory=[],waterHistory=[],sleepHistory=[];
 
 // AI Companion
-function aiChat(){
+function escapeHtml(text) {
+  return text
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("'", "&#039;");
+}
+
+function getUserName(user) {
+  if (user?.displayName && user.displayName.trim()) return user.displayName.trim();
+  if (user?.email) return user.email.split("@")[0];
+  return "there";
+}
+
+function setChatText(textNode, text, isHtml) {
+  if (isHtml) textNode.innerHTML = text;
+  else textNode.textContent = text;
+}
+
+function renderChatMessage(role, messageText, isHtml, chatId, fieldName) {
+  const row = document.createElement("div");
+  row.className = "chat-message";
+
+  const textNode = document.createElement("div");
+  textNode.className = "chat-text";
+  textNode.dataset.rawText = messageText;
+  setChatText(textNode, `${role === "user" ? "You" : "AI"}: ${messageText}`, isHtml);
+
+  row.append(textNode);
+
+  if (role === "user") {
+    const editBtn = document.createElement("button");
+    editBtn.className = "chat-edit-btn";
+    editBtn.textContent = "Edit";
+    editBtn.onclick = () => editChatMessage(chatId, fieldName, textNode, role);
+    row.append(editBtn);
+  }
+
+  chat.appendChild(row);
+  chat.scrollTop = chat.scrollHeight;
+}
+
+async function editChatMessage(chatId, fieldName, textNode, role) {
+  const currentText = textNode.dataset.rawText || "";
+  const updatedText = prompt("Edit message", currentText);
+  if (updatedText === null) return;
+
+  const nextText = updatedText.trim();
+  if (!nextText) {
+    alert("Message cannot be empty.");
+    return;
+  }
+
+  textNode.dataset.rawText = nextText;
+  setChatText(textNode, `${role === "user" ? "You" : "AI"}: ${nextText}`, false);
+
+  const user = auth.currentUser;
+  if (!user || !chatId) return;
+
+  try {
+    const payload = { [fieldName]: nextText };
+    if (fieldName === "aiResponse") payload.aiResponseIsHtml = false;
+    await updateDoc(doc(db, "users", user.uid, "aiChats", chatId), payload);
+  } catch (err) {
+    console.error("Failed to edit chat message:", err);
+    alert(`Could not save edit: ${err.message || "Unknown error"}`);
+  }
+}
+
+function renderChatPair(entry) {
+  renderChatMessage("user", entry.userMessage || "", false, entry.id, "userMessage");
+  renderChatMessage("ai", entry.aiResponse || "", !!entry.aiResponseIsHtml, entry.id, "aiResponse");
+}
+
+async function loadAiChats(userId) {
+  chat.innerHTML = "";
+
+  try {
+    const snapshot = await getDocs(collection(db, "users", userId, "aiChats"));
+    const docs = snapshot.docs
+      .map((docSnap) => ({ id: docSnap.id, ...docSnap.data() }))
+      .sort((a, b) => {
+        const aTime = a.createdAt?.toMillis?.() ?? new Date(a.createdAt || 0).getTime();
+        const bTime = b.createdAt?.toMillis?.() ?? new Date(b.createdAt || 0).getTime();
+        return aTime - bTime;
+      });
+
+    docs.forEach((entry) => {
+      renderChatPair(entry);
+    });
+  } catch (err) {
+    console.error("Failed to load AI chat logs:", err);
+  }
+}
+
+async function storeAiChat(userId, userMessage, aiResponse, aiResponseIsHtml) {
+  try {
+    const ref = await addDoc(
+      collection(db, "users", userId, "aiChats"),
+      {
+        userMessage,
+        aiResponse,
+        aiResponseIsHtml,
+        createdAt: serverTimestamp()
+      }
+    );
+    return ref.id;
+  } catch (err) {
+    console.error("Failed to store AI chat:", err);
+    return null;
+  }
+}
+
+async function clearAiChats() {
+  const user = auth.currentUser;
+  if (!user) return;
+  if (!confirm("Clear all AI conversations?")) return;
+
+  try {
+    const snapshot = await getDocs(collection(db, "users", user.uid, "aiChats"));
+    await Promise.all(snapshot.docs.map((docSnap) => deleteDoc(docSnap.ref)));
+    chat.innerHTML = "";
+  } catch (err) {
+    console.error("Failed to clear AI chats:", err);
+    alert(`Could not clear chats: ${err.message || "Unknown error"}`);
+  }
+}
+
+async function aiChat(){
   const input = aiInput.value.trim();
   if(!input) return;
+  const user = auth.currentUser;
+  if (!user) {
+    alert("Please sign in first.");
+    return;
+  }
+
   let msg=input.toLowerCase();
   let response="";
+  let responseIsHtml = false;
+
   if(msg.match(/hi|hello|hey/)) {
-    const currentUser = auth.currentUser?.email || "there";
+    const currentUser = getUserName(user);
     response = `Hey there! What's up, ${currentUser}? 😊`;
-}
+  }
   else if(msg.match(/who are you/)) response="I am your NovaFix wellness companion 🌱";
   else if(msg.match(/analyze|analysis|report|conclude/)){
     if(moodHistory.length===0&&waterHistory.length===0&&sleepHistory.length===0){
       response="You haven’t logged enough data yet for analysis. Start with mood, water, or sleep 🌱";
     } else {
+      responseIsHtml = true;
       response="📊 <b>Your Wellness Analysis</b><br>";
       if(sleepHistory.length){const lastSleep=sleepHistory[sleepHistory.length-1];response+=`💤 Sleep: ${lastSleep} hrs<br>`;}
       if(waterHistory.length){const totalWater=waterHistory.reduce((a,b)=>a+b,0);response+=`💧 Water today: ${totalWater} glasses<br>`;}
@@ -525,8 +765,14 @@ function aiChat(){
       response+="<br>✨ Tip: Consistency beats intensity. Hydrate well, protect sleep, and track mood daily.";
     }
   } else response="I’m listening 🌿 Tell me about your mood, energy, or type *analyze* to see your wellness report.";
-  chat.innerHTML+=`<p><b>You:</b> ${input}</p><p><b>AI:</b><br>${response}</p>`;
-  chat.scrollTop=chat.scrollHeight;
+
+  const chatId = await storeAiChat(user.uid, input, response, responseIsHtml);
+  renderChatPair({
+    id: chatId,
+    userMessage: input,
+    aiResponse: response,
+    aiResponseIsHtml: responseIsHtml
+  });
   aiInput.value="";
 }
 
@@ -558,14 +804,87 @@ function addReminder() {
 }
 
 // Tasks
-function addTask(){
+function renderTask(entry) {
+  const li = document.createElement("li");
+  const span = document.createElement("span");
+  span.textContent = entry.text;
+
+  const editBtn = document.createElement("button");
+  editBtn.textContent = "✏️";
+  editBtn.onclick = async () => {
+    const newText = prompt("Edit task", span.textContent);
+    if (!newText || !newText.trim()) return;
+    span.textContent = newText.trim();
+
+    const user = auth.currentUser;
+    if (!user || !entry.id) return;
+    try {
+      await updateDoc(doc(db, "users", user.uid, "tasks", entry.id), { text: newText.trim() });
+    } catch (err) {
+      console.error("Failed to edit task:", err);
+      alert(`Could not update task: ${err.message || "Unknown error"}`);
+    }
+  };
+
+  const deleteBtn = document.createElement("button");
+  deleteBtn.textContent = "🗑️";
+  deleteBtn.onclick = async () => {
+    const user = auth.currentUser;
+    if (!user || !entry.id) {
+      li.remove();
+      return;
+    }
+    try {
+      await deleteDoc(doc(db, "users", user.uid, "tasks", entry.id));
+      li.remove();
+    } catch (err) {
+      console.error("Failed to delete task:", err);
+      alert(`Could not delete task: ${err.message || "Unknown error"}`);
+    }
+  };
+
+  li.append(span, editBtn, deleteBtn);
+  taskList.appendChild(li);
+}
+
+async function loadTasks(userId) {
+  taskList.innerHTML = "";
+  try {
+    const snapshot = await getDocs(collection(db, "users", userId, "tasks"));
+    const docs = snapshot.docs
+      .map((docSnap) => ({ id: docSnap.id, ...docSnap.data() }))
+      .sort((a, b) => {
+        const aTime = a.time?.toMillis?.() ?? new Date(a.time || 0).getTime();
+        const bTime = b.time?.toMillis?.() ?? new Date(b.time || 0).getTime();
+        return aTime - bTime;
+      });
+    docs.forEach((entry) => renderTask(entry));
+  } catch (err) {
+    console.error("Failed to load tasks:", err);
+  }
+}
+
+async function addTask(){
+  const user = auth.currentUser;
+  if (!user) {
+    alert("Please sign in first.");
+    return;
+  }
+
   const t=task.value.trim();
   if(!t)return;
-  const li=document.createElement("li");
-  const span=document.createElement("span");span.textContent=t;
-  const e=document.createElement("button");e.textContent="✏️";e.onclick=()=>{const n=prompt("Edit task",span.textContent);if(n)span.textContent=n};
-  const d=document.createElement("button");d.textContent="🗑️";d.onclick=()=>li.remove();
-  li.append(span,e,d);taskList.appendChild(li);task.value="";
+
+  try {
+    const ref = await addDoc(collection(db, "users", user.uid, "tasks"), {
+      text: t,
+      time: serverTimestamp()
+    });
+    renderTask({ id: ref.id, text: t, time: new Date() });
+    task.value="";
+  } catch (err) {
+    console.error("Failed to save task:", err);
+    alert(`Could not save task: ${err.message || "Unknown error"}`);
+  }
 }
 
 // Finance
@@ -581,25 +900,221 @@ function calculateFinance(){
 }
 
 // Mood
-function saveMood(){moodLogs.innerHTML+=`<div>${new Date().toLocaleTimeString()} - ${mood.value}</div>`;moodHistory.push(mood.value);}
+function renderMoodLog(entry) {
+  const moodRow = document.createElement("div");
+  moodRow.className = "mood-item";
+
+  const moodLabel = document.createElement("span");
+  const rawTime = entry.time?.toDate?.() ?? new Date(entry.time || Date.now());
+  moodLabel.textContent = `${rawTime.toLocaleTimeString()} - ${entry.mood}`;
+
+  const removeBtn = document.createElement("button");
+  removeBtn.className = "mood-remove";
+  removeBtn.textContent = "Remove";
+  removeBtn.onclick = () => deleteMoodLog(entry.id, moodRow, entry.mood);
+
+  moodRow.append(moodLabel, removeBtn);
+  moodLogs.appendChild(moodRow);
+}
+
+async function deleteMoodLog(moodId, moodElement, moodValue) {
+  const user = auth.currentUser;
+  if (!user || !moodId) return;
+
+  try {
+    await deleteDoc(doc(db, "users", user.uid, "moods", moodId));
+    moodElement.remove();
+    const moodIndex = moodHistory.findIndex((m) => m === moodValue);
+    if (moodIndex >= 0) moodHistory.splice(moodIndex, 1);
+  } catch (err) {
+    console.error("Failed to remove mood:", err);
+    alert(`Could not remove mood: ${err.message || "Unknown error"}`);
+  }
+}
+
+async function loadMoods(userId) {
+  moodLogs.innerHTML = "";
+  moodHistory.length = 0;
+
+  try {
+    const snapshot = await getDocs(collection(db, "users", userId, "moods"));
+    const docs = snapshot.docs
+      .map((docSnap) => ({ id: docSnap.id, ...docSnap.data() }))
+      .sort((a, b) => {
+        const aTime = a.time?.toMillis?.() ?? new Date(a.time || 0).getTime();
+        const bTime = b.time?.toMillis?.() ?? new Date(b.time || 0).getTime();
+        return aTime - bTime;
+      });
+
+    docs.forEach((entry) => {
+      moodHistory.push(entry.mood);
+      renderMoodLog(entry);
+    });
+  } catch (err) {
+    console.error("Failed to load mood logs:", err);
+  }
+}
+
+async function saveMood() {
+  const user = auth.currentUser;
+  if (!user) {
+    alert("Please sign in first.");
+    return;
+  }
+
+  const moodValue = mood.value;
+
+  try {
+    const moodRef = await addDoc(
+      collection(db, "users", user.uid, "moods"),
+      {
+        mood: moodValue,
+        uid: user.uid,
+        email: user.email || null,
+        time: serverTimestamp()
+      }
+    );
+
+    moodHistory.push(moodValue);
+    renderMoodLog({ id: moodRef.id, mood: moodValue, time: new Date() });
+  } catch (err) {
+    console.error("Firestore write failed:", err);
+    alert(`Could not save mood: ${err.message || "Unknown error"}`);
+  }
+}
 
 // Water
 let waterGoal=0;
-function setWaterGoal(){waterGoal=+waterGoalInput.value}
-function saveWater() {
-  const v = +waterInput.value;
-  if (!v) return; // ignore empty or 0 input
-  waterHistory.push(v);
-  
+function updateWaterProgress() {
   const sum = waterHistory.reduce((a, b) => a + b, 0);
   const percent = waterGoal > 0 ? Math.round((sum / waterGoal) * 100) : 0;
-  
   waterProgress.innerText = `${sum}/${waterGoal} (${percent}%)`;
-  waterInput.value = "";
+}
+
+async function setWaterGoal(){
+  const user = auth.currentUser;
+  waterGoal = +waterGoalInput.value || 0;
+  updateWaterProgress();
+
+  if (waterGoal > 0) {
+    alert(`✅ Water goal set to ${waterGoal} glasses.`);
+  } else {
+    alert("ℹ️ Water goal cleared.");
+  }
+
+  if (!user) return;
+  try {
+    await setDoc(doc(db, "users", user.uid, "settings", "water"), { goal: waterGoal }, { merge: true });
+  } catch (err) {
+    console.error("Failed to save water goal:", err);
+    alert(`Could not save water goal: ${err.message || "Unknown error"}`);
+  }
+}
+
+async function loadWaterData(userId) {
+  waterHistory.length = 0;
+
+  try {
+    const waterSettings = await getDoc(doc(db, "users", userId, "settings", "water"));
+    waterGoal = waterSettings.exists() ? (waterSettings.data().goal || 0) : 0;
+    waterGoalInput.value = waterGoal || "";
+
+    const snapshot = await getDocs(collection(db, "users", userId, "waterIntake"));
+    const docs = snapshot.docs
+      .map((docSnap) => docSnap.data())
+      .sort((a, b) => {
+        const aTime = a.time?.toMillis?.() ?? new Date(a.time || 0).getTime();
+        const bTime = b.time?.toMillis?.() ?? new Date(b.time || 0).getTime();
+        return aTime - bTime;
+      });
+
+    docs.forEach((entry) => {
+      if (entry.glasses) waterHistory.push(entry.glasses);
+    });
+
+    updateWaterProgress();
+  } catch (err) {
+    console.error("Failed to load water intake:", err);
+  }
+}
+
+async function saveWater() {
+  const user = auth.currentUser;
+  if (!user) {
+    alert("Please sign in first.");
+    return;
+  }
+
+  const v = +waterInput.value;
+  if (!v) return; // ignore empty or 0 input
+
+  waterHistory.push(v);
+
+  try {
+    await addDoc(collection(db, "users", user.uid, "waterIntake"), {
+      glasses: v,
+      time: serverTimestamp()
+    });
+    updateWaterProgress();
+    waterInput.value = "";
+  } catch (err) {
+    console.error("Failed to save water intake:", err);
+    alert(`Could not save water intake: ${err.message || "Unknown error"}`);
+  }
 }
 
 // Sleep
-function saveSleep(){sleepHistory.push(+sleepInput.value);sleepResult.innerText=`${sleepInput.value} hrs 💤`}
+async function loadSleepData(userId) {
+  sleepHistory.length = 0;
+  sleepResult.innerText = "";
+
+  try {
+    const snapshot = await getDocs(collection(db, "users", userId, "sleepLogs"));
+    const docs = snapshot.docs
+      .map((docSnap) => docSnap.data())
+      .sort((a, b) => {
+        const aTime = a.time?.toMillis?.() ?? new Date(a.time || 0).getTime();
+        const bTime = b.time?.toMillis?.() ?? new Date(b.time || 0).getTime();
+        return aTime - bTime;
+      });
+
+    docs.forEach((entry) => {
+      if (entry.hours) sleepHistory.push(entry.hours);
+    });
+
+    if (sleepHistory.length) {
+      const latest = sleepHistory[sleepHistory.length - 1];
+      sleepResult.innerText = `${latest} hrs 💤`;
+    }
+  } catch (err) {
+    console.error("Failed to load sleep logs:", err);
+  }
+}
+
+async function saveSleep(){
+  const user = auth.currentUser;
+  if (!user) {
+    alert("Please sign in first.");
+    return;
+  }
+
+  const hours = +sleepInput.value;
+  if (!hours) return;
+
+  sleepHistory.push(hours);
+  sleepResult.innerText = `${hours} hrs 💤`;
+
+  try {
+    await addDoc(collection(db, "users", user.uid, "sleepLogs"), {
+      hours,
+      time: serverTimestamp()
+    });
+    sleepInput.value = "";
+  } catch (err) {
+    console.error("Failed to save sleep log:", err);
+    alert(`Could not save sleep log: ${err.message || "Unknown error"}`);
+  }
+}
 
 // Time Mirror
 function timeTraveller(){const task=futureTask.value.trim();if(!task)return alert("Enter a task or goal.");timeMirror.innerHTML=`<p>✨ Future if you do it: You feel accomplished and energized after completing "${task}". 💪</p><p>💤 Future if you skip it: You feel regret and a missed opportunity after ignoring "${task}". 😔</p>`;futureTask.value=""}
@@ -610,7 +1125,97 @@ function newQuote(){quoteDisplay.innerText=quotes[Math.floor(Math.random()*quote
 newQuote();
 
 // Gratitude
-function saveGratitude(){const t=gratitudeInput.value.trim();if(!t)return;gratitudeLogs.innerHTML+=`<div>${new Date().toLocaleTimeString()} - ${t}</div>`;gratitudeInput.value="";}
+function renderGratitude(entry) {
+  const row = document.createElement("div");
+  const rawTime = entry.time?.toDate?.() ?? new Date(entry.time || Date.now());
+
+  const label = document.createElement("span");
+  label.textContent = `${rawTime.toLocaleTimeString()} - ${entry.text}`;
+
+  const editBtn = document.createElement("button");
+  editBtn.textContent = "✏️";
+  editBtn.onclick = async () => {
+    const nextText = prompt("Edit gratitude", entry.text || "");
+    if (!nextText || !nextText.trim()) return;
+
+    const user = auth.currentUser;
+    if (!user || !entry.id) return;
+
+    try {
+      await updateDoc(doc(db, "users", user.uid, "gratitudeLogs", entry.id), {
+        text: nextText.trim()
+      });
+      entry.text = nextText.trim();
+      label.textContent = `${rawTime.toLocaleTimeString()} - ${entry.text}`;
+    } catch (err) {
+      console.error("Failed to edit gratitude log:", err);
+      alert(`Could not update gratitude log: ${err.message || "Unknown error"}`);
+    }
+  };
+
+  const deleteBtn = document.createElement("button");
+  deleteBtn.textContent = "🗑️";
+  deleteBtn.onclick = async () => {
+    const user = auth.currentUser;
+    if (!user || !entry.id) {
+      row.remove();
+      return;
+    }
+
+    try {
+      await deleteDoc(doc(db, "users", user.uid, "gratitudeLogs", entry.id));
+      row.remove();
+    } catch (err) {
+      console.error("Failed to delete gratitude log:", err);
+      alert(`Could not delete gratitude log: ${err.message || "Unknown error"}`);
+    }
+  };
+
+  row.append(label, editBtn, deleteBtn);
+  gratitudeLogs.appendChild(row);
+}
+
+async function loadGratitude(userId) {
+  gratitudeLogs.innerHTML = "";
+
+  try {
+    const snapshot = await getDocs(collection(db, "users", userId, "gratitudeLogs"));
+    const docs = snapshot.docs
+      .map((docSnap) => ({ id: docSnap.id, ...docSnap.data() }))
+      .sort((a, b) => {
+        const aTime = a.time?.toMillis?.() ?? new Date(a.time || 0).getTime();
+        const bTime = b.time?.toMillis?.() ?? new Date(b.time || 0).getTime();
+        return aTime - bTime;
+      });
+
+    docs.forEach((entry) => renderGratitude(entry));
+  } catch (err) {
+    console.error("Failed to load gratitude logs:", err);
+  }
+}
+
+async function saveGratitude(){
+  const user = auth.currentUser;
+  if (!user) {
+    alert("Please sign in first.");
+    return;
+  }
+
+  const t=gratitudeInput.value.trim();
+  if(!t)return;
+
+  try {
+    const ref = await addDoc(collection(db, "users", user.uid, "gratitudeLogs"), {
+      text: t,
+      time: serverTimestamp()
+    });
+    renderGratitude({ id: ref.id, text: t, time: new Date() });
+    gratitudeInput.value="";
+  } catch (err) {
+    console.error("Failed to save gratitude log:", err);
+    alert(`Could not save gratitude log: ${err.message || "Unknown error"}`);
+  }
+}
 
 // Daily Challenge
 const dailyChallenges = [
@@ -650,6 +1255,7 @@ Object.assign(window, {
   toggleAuth,
   signOutUser,
   aiChat,
+  clearAiChats,
   addReminder,
   addTask,
   calculateFinance,
