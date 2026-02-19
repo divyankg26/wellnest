@@ -105,6 +105,9 @@ body{
   font-weight: bold;
   font-size: 16px;
 }
+.google-btn{
+  background: rgba(255,255,255,0.28) !important;
+}
 .modal-content p {margin-top: 10px; font-size: 14px; cursor: pointer;}
 
 /* HEADER */
@@ -252,6 +255,54 @@ button{
   font-size:12px;
 }
 
+.task-done{
+  text-decoration:line-through;
+  opacity:.75;
+}
+
+.insight-list{margin:6px 0 0;padding-left:18px}
+.insight-list li{margin:4px 0}
+
+.insight-row{margin-top:8px}
+.insight-row small{display:block;margin-bottom:4px;opacity:.9}
+.insight-bar{
+  width:100%;
+  height:10px;
+  border-radius:10px;
+  background:rgba(255,255,255,.2);
+  overflow:hidden;
+}
+.insight-fill{
+  height:100%;
+  background:linear-gradient(135deg,var(--primary),var(--accent));
+  width:0%;
+}
+
+.export-actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:8px}
+.export-note{font-size:13px;opacity:.9;margin-top:8px}
+
+.wellness-badge{
+  font-size:34px;
+  font-weight:800;
+  text-align:center;
+  margin:6px 0;
+}
+
+.wellness-status{
+  text-align:center;
+  margin:0;
+  font-weight:600;
+}
+
+.wellness-actions{
+  margin:10px 0 0;
+  padding-left:18px;
+}
+
+.wellness-actions li{
+  margin:5px 0;
+}
+
 ::-webkit-scrollbar{width:6px}
 ::-webkit-scrollbar-thumb{background:var(--primary);border-radius:3px}
 </style>
@@ -273,6 +324,7 @@ button{
     <input id="emailInput" type="email" placeholder="Enter email">
     <input id="passwordInput" type="password" placeholder="Enter password">
     <button id="actionButton" onclick="handleAuth()">Sign In</button>
+    <button id="googleAuthButton" class="google-btn" onclick="handleGoogleAuth()">Sign In with Google</button>
     <p onclick="toggleAuth()"><span id="toggleText">Don't have an account? Sign Up</span></p>
     <p id="signInError" style="color:red; display:none;">Error message here!</p>
   </div>
@@ -397,6 +449,54 @@ button{
 <p id="challengeResult"></p>
 </div>
 
+<!-- Daily Wellness Score -->
+<div class="card">
+<h2>⭐ Daily Wellness Score</h2>
+<div id="wellnessScore" class="wellness-badge">0/100</div>
+<p id="wellnessStatus" class="wellness-status">Needs Focus</p>
+<ul id="wellnessActions" class="wellness-actions">
+  <li>Log your first check-in for today.</li>
+  <li>Set your water target and drink one glass.</li>
+  <li>Add one gratitude note tonight.</li>
+</ul>
+</div>
+
+<!-- Insights -->
+<div class="card">
+<h2>📈 Insights & Streaks</h2>
+<p id="insightSummary">Loading insights...</p>
+<ul class="insight-list">
+  <li id="moodStreak">Mood streak: 0 days</li>
+  <li id="waterStreak">Water streak: 0 days</li>
+  <li id="gratitudeStreak">Gratitude streak: 0 days</li>
+  <li id="challengeStreak">Challenge streak: 0 days</li>
+</ul>
+
+<div class="insight-row">
+  <small id="taskCompletionLabel">Productivity task completion: 0%</small>
+  <div class="insight-bar"><div id="taskCompletionBar" class="insight-fill"></div></div>
+</div>
+<div class="insight-row">
+  <small id="sleepAverageLabel">Avg sleep: 0 hrs</small>
+  <div class="insight-bar"><div id="sleepAverageBar" class="insight-fill"></div></div>
+</div>
+<div class="insight-row">
+  <small id="waterGoalLabel">Water goal progress: 0%</small>
+  <div class="insight-bar"><div id="waterGoalBar" class="insight-fill"></div></div>
+</div>
+</div>
+
+<!-- Export -->
+<div class="card">
+<h2>📦 Export</h2>
+<div class="export-actions">
+  <button onclick="exportAllData()">Export My Data</button>
+  <button onclick="startImportData()">Import Data</button>
+</div>
+<p class="export-note">Download your full NovaFix data as JSON for transfering accounts</p>
+<input id="importFileInput" type="file" accept="application/json,.json" style="display:none" onchange="importDataFileChange(event)">
+</div>
+
 </div>
 
 <script type="module">
@@ -411,7 +511,9 @@ import {
   signInWithEmailAndPassword, 
   onAuthStateChanged, 
   signOut,
-  updateProfile 
+  updateProfile,
+  GoogleAuthProvider,
+  signInWithPopup
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
 
 // 🔥 Your Firebase Config
@@ -433,11 +535,13 @@ try {
 } catch (_) {}
 const auth = getAuth(app);
 const db = getFirestore(app);
+const googleProvider = new GoogleAuthProvider();
 
 // ---------- DOM REFERENCES ----------
 const emailInput = document.getElementById("emailInput");
 const passwordInput = document.getElementById("passwordInput");
 const usernameInput = document.getElementById("usernameInput");
+const googleAuthButton = document.getElementById("googleAuthButton");
 const splash = document.getElementById("splash");
 const signInModal = document.getElementById("signInModal");
 const dashboard = document.querySelector(".dashboard");
@@ -465,6 +569,23 @@ const timeMirror = document.getElementById("timeMirror");
 const quoteDisplay = document.getElementById("quoteDisplay");
 const gratitudeInput = document.getElementById("gratitudeInput");
 const gratitudeLogs = document.getElementById("gratitudeLogs");
+const dailyChallengeElement = document.getElementById("dailyChallenge");
+const challengeResultElement = document.getElementById("challengeResult");
+const importFileInput = document.getElementById("importFileInput");
+const insightSummary = document.getElementById("insightSummary");
+const moodStreakEl = document.getElementById("moodStreak");
+const waterStreakEl = document.getElementById("waterStreak");
+const gratitudeStreakEl = document.getElementById("gratitudeStreak");
+const challengeStreakEl = document.getElementById("challengeStreak");
+const wellnessScoreEl = document.getElementById("wellnessScore");
+const wellnessStatusEl = document.getElementById("wellnessStatus");
+const wellnessActionsEl = document.getElementById("wellnessActions");
+const taskCompletionLabel = document.getElementById("taskCompletionLabel");
+const taskCompletionBar = document.getElementById("taskCompletionBar");
+const sleepAverageLabel = document.getElementById("sleepAverageLabel");
+const sleepAverageBar = document.getElementById("sleepAverageBar");
+const waterGoalLabel = document.getElementById("waterGoalLabel");
+const waterGoalBar = document.getElementById("waterGoalBar");
 
 // ---------- SPLASH + AUTH CHECK ----------
 document.body.style.overflow = "hidden";
@@ -491,13 +612,16 @@ try {
         dashboard.style.display = "grid";
         signOutBtn.style.display = "block";
         signInModal.style.display = "none";
+        loadDailyChallenge(user.uid);
         loadMoods(user.uid);
         loadAiChats(user.uid);
         loadTasks(user.uid);
         loadWaterData(user.uid);
         loadSleepData(user.uid);
         loadGratitude(user.uid);
+        startDailyChallengeWatcher();
       } else {
+        stopDailyChallengeWatcher();
         signInModal.style.display = "flex";
         dashboard.style.display = "none";
         signOutBtn.style.display = "none";
@@ -507,9 +631,21 @@ try {
         gratitudeLogs.innerHTML = "";
         waterProgress.innerText = "";
         sleepResult.innerText = "";
+        wellnessScoreEl.innerText = "0/100";
+        wellnessStatusEl.innerText = "Needs Focus";
+        wellnessActionsEl.innerHTML = "<li>Log your first check-in for today.</li><li>Set your water target and drink one glass.</li><li>Add one gratitude note tonight.</li>";
+        challengeResultElement.innerText = "";
         moodHistory.length = 0;
         waterHistory.length = 0;
         sleepHistory.length = 0;
+        moodDates.length = 0;
+        waterDates.length = 0;
+        sleepDates.length = 0;
+        taskEntries.length = 0;
+        gratitudeEntries.length = 0;
+        challengeDates.length = 0;
+        dailyChallengeCompleted = false;
+        currentChallengeDateKey = "";
         waterGoal = 0;
         waterGoalInput.value = "";
       }
@@ -557,11 +693,13 @@ function toggleAuth(){
   if(authMode==="signup"){
     title.innerText="Create a NovaFix Account 🌟";
     button.innerText="Sign Up";
+    googleAuthButton.innerText = "Sign Up with Google";
     toggleText.innerText="Already have an account? Sign In";
     usernameInput.style.display = "block";
   } else {
     title.innerText="Welcome to NovaFix 🌟";
     button.innerText="Sign In";
+    googleAuthButton.innerText = "Sign In with Google";
     toggleText.innerText="Don't have an account? Sign Up";
     usernameInput.style.display = "none";
   }
@@ -602,8 +740,256 @@ function signOutUser() {
   signOut(auth);
 }
 
+async function handleGoogleAuth() {
+  const error = document.getElementById("signInError");
+  error.style.display = "none";
+
+  if (window.location.protocol === "file:") {
+    error.style.display = "block";
+    error.innerText = "Google auth does not work on file://. Start a local server and open via http://localhost:<port>.";
+    return;
+  }
+
+  try {
+    await signInWithPopup(auth, googleProvider);
+  } catch (err) {
+    const currentOrigin = window.location.origin || "unknown-origin";
+    const currentHost = window.location.hostname || "unknown-host";
+    const isUnauthorizedDomain = (err?.code || "").includes("unauthorized-domain");
+    error.style.display = "block";
+    error.innerText = isUnauthorizedDomain
+      ? `Unauthorized domain. Current origin: ${currentOrigin}. Add '${currentHost}' in Firebase Auth > Settings > Authorized domains, then hard refresh.`
+      : (err.message || "Google authentication failed.");
+  }
+}
+
 // ---------- DASHBOARD JS ----------
 const moodHistory=[],waterHistory=[],sleepHistory=[];
+const moodDates=[];
+const waterDates=[];
+const sleepDates=[];
+const taskEntries=[];
+const gratitudeEntries=[];
+const aiRecentPrompts=[];
+const challengeDates=[];
+let dailyChallengeCompleted=false;
+let currentChallengeText="";
+let currentChallengeDateKey="";
+let challengeWatcherInterval=null;
+let insightsPersistTimer=null;
+const userTimeZone = Intl.DateTimeFormat().resolvedOptions().timeZone || "local";
+
+function dateToKey(dateValue) {
+  const date = dateValue instanceof Date ? dateValue : new Date(dateValue);
+  if (Number.isNaN(date.getTime())) return null;
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
+
+function calcStreak(dateValues) {
+  const daySet = new Set(
+    dateValues
+      .map((value) => dateToKey(value))
+      .filter(Boolean)
+  );
+
+  let streak = 0;
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+
+  while (true) {
+    const dayKey = dateToKey(today);
+    if (!daySet.has(dayKey)) break;
+    streak++;
+    today.setDate(today.getDate() - 1);
+  }
+
+  return streak;
+}
+
+function setInsightBar(element, percent) {
+  const bounded = Math.max(0, Math.min(100, percent));
+  element.style.width = `${bounded}%`;
+}
+
+function dateKeyToDate(dateKey) {
+  if (!dateKey || typeof dateKey !== "string") return null;
+  const [year, month, day] = dateKey.split("-").map(Number);
+  if (!year || !month || !day) return null;
+  const parsed = new Date(year, month - 1, day, 12, 0, 0, 0);
+  return Number.isNaN(parsed.getTime()) ? null : parsed;
+}
+
+function pickChallengeForDate(dateKey) {
+  const sum = [...dateKey].reduce((total, char) => total + char.charCodeAt(0), 0);
+  return dailyChallenges[sum % dailyChallenges.length];
+}
+
+function queueInsightsPersist(payload) {
+  if (insightsPersistTimer) clearTimeout(insightsPersistTimer);
+  insightsPersistTimer = setTimeout(async () => {
+    const user = auth.currentUser;
+    if (!user) return;
+    try {
+      await setDoc(doc(db, "users", user.uid, "insights", "current"), {
+        ...payload,
+        updatedAt: serverTimestamp()
+      }, { merge: true });
+    } catch (err) {
+      console.error("Failed to persist insights:", err);
+    }
+  }, 350);
+}
+
+function getTodayKey() {
+  const formatter = new Intl.DateTimeFormat("en-CA", {
+    timeZone: userTimeZone,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit"
+  });
+  return formatter.format(new Date());
+}
+
+function startDailyChallengeWatcher() {
+  if (challengeWatcherInterval) clearInterval(challengeWatcherInterval);
+  challengeWatcherInterval = setInterval(async () => {
+    const user = auth.currentUser;
+    if (!user) return;
+    const todayKey = getTodayKey();
+    if (todayKey !== currentChallengeDateKey) {
+      await loadDailyChallenge(user.uid);
+    }
+  }, 30000);
+}
+
+function stopDailyChallengeWatcher() {
+  if (challengeWatcherInterval) {
+    clearInterval(challengeWatcherInterval);
+    challengeWatcherInterval = null;
+  }
+}
+
+function updateWellnessScore() {
+  const todayKey = getTodayKey();
+
+  const waterToday = waterHistory.reduce((sum, value, index) => {
+    const dateKey = dateToKey(waterDates[index]);
+    return dateKey === todayKey ? sum + value : sum;
+  }, 0);
+  const effectiveWaterGoal = waterGoal > 0 ? waterGoal : 8;
+  const waterRatio = Math.min(1, waterToday / effectiveWaterGoal);
+  const waterPoints = Math.round(waterRatio * 30);
+
+  const sleepToday = sleepHistory.reduce((lastValue, value, index) => {
+    const dateKey = dateToKey(sleepDates[index]);
+    return dateKey === todayKey ? value : lastValue;
+  }, 0);
+  const sleepRatio = Math.min(1, sleepToday / 8);
+  const sleepPoints = Math.round(sleepRatio * 25);
+
+  const moodToday = moodHistory.reduce((lastMood, value, index) => {
+    const dateKey = dateToKey(moodDates[index]);
+    return dateKey === todayKey ? value : lastMood;
+  }, "");
+  const moodFactor = moodToday.includes("😊") ? 1 : moodToday.includes("😐") ? 0.65 : moodToday.includes("😔") ? 0.3 : 0;
+  const moodPoints = Math.round(moodFactor * 20);
+
+  const totalTasks = taskEntries.length;
+  const doneTasks = taskEntries.filter((entry) => !!entry.completed).length;
+  const taskRatio = totalTasks ? doneTasks / totalTasks : 0;
+  const taskPoints = Math.round(taskRatio * 15);
+
+  const hasGratitudeToday = gratitudeEntries.some((entry) => dateToKey(entry.time) === todayKey);
+  const gratitudePoints = hasGratitudeToday ? 10 : 0;
+  const challengePoints = dailyChallengeCompleted ? 10 : 0;
+
+  const totalScore = Math.max(0, Math.min(100, waterPoints + sleepPoints + moodPoints + taskPoints + gratitudePoints + challengePoints));
+
+  wellnessScoreEl.innerText = `${totalScore}/100`;
+
+  let status = "Needs Focus";
+  if (totalScore >= 80) status = "Excellent";
+  else if (totalScore >= 60) status = "Good";
+  wellnessStatusEl.innerText = status;
+
+  const actions = [];
+  if (waterRatio < 1) {
+    const remaining = Math.max(0, effectiveWaterGoal - waterToday);
+    actions.push(`Drink ${remaining} more glass${remaining === 1 ? "" : "es"} to hit your goal.`);
+  }
+  if (sleepToday < 7) actions.push("Aim for at least 7–8 hours of sleep tonight.");
+  if (!moodToday) actions.push("Log your mood for today.");
+  else if (moodToday.includes("😔")) actions.push("Take a 10-minute breathing or walk break.");
+  if (taskRatio < 0.7) actions.push("Complete one pending task to boost productivity.");
+  if (!hasGratitudeToday) actions.push("Write one gratitude note before the day ends.");
+  if (!dailyChallengeCompleted) actions.push("Complete today’s daily challenge for an extra score boost.");
+
+  while (actions.length < 3) actions.push("Keep your current streak alive with one small check-in.");
+  wellnessActionsEl.innerHTML = actions.slice(0, 3).map((item) => `<li>${item}</li>`).join("");
+}
+
+function updateInsights() {
+  const moodStreak = calcStreak(moodDates);
+  const waterStreak = calcStreak(waterDates);
+  const gratitudeStreak = calcStreak(gratitudeEntries.map((entry) => entry.time));
+  const challengeStreak = calcStreak(challengeDates);
+
+  const totalTasks = taskEntries.length;
+  const doneTasks = taskEntries.filter((entry) => !!entry.completed).length;
+  const taskCompletion = totalTasks ? Math.round((doneTasks / totalTasks) * 100) : 0;
+
+  const avgSleep = sleepHistory.length
+    ? sleepHistory.reduce((a, b) => a + b, 0) / sleepHistory.length
+    : 0;
+  const sleepPercent = Math.round(Math.min(100, (avgSleep / 8) * 100));
+
+  const waterSum = waterHistory.reduce((a, b) => a + b, 0);
+  const waterPercent = waterGoal > 0 ? Math.round((waterSum / waterGoal) * 100) : 0;
+
+  moodStreakEl.innerText = `Mood streak: ${moodStreak} day${moodStreak === 1 ? "" : "s"}`;
+  waterStreakEl.innerText = `Water streak: ${waterStreak} day${waterStreak === 1 ? "" : "s"}`;
+  gratitudeStreakEl.innerText = `Gratitude streak: ${gratitudeStreak} day${gratitudeStreak === 1 ? "" : "s"}`;
+  challengeStreakEl.innerText = `Challenge streak: ${challengeStreak} day${challengeStreak === 1 ? "" : "s"}`;
+
+  taskCompletionLabel.innerText = `Productivity task completion: ${taskCompletion}% (${doneTasks}/${totalTasks})`;
+  sleepAverageLabel.innerText = `Avg sleep: ${avgSleep.toFixed(1)} hrs`;
+  waterGoalLabel.innerText = `Water goal progress: ${waterPercent}%`;
+
+  setInsightBar(taskCompletionBar, taskCompletion);
+  setInsightBar(sleepAverageBar, sleepPercent);
+  setInsightBar(waterGoalBar, waterPercent);
+
+  const strongest = [
+    { label: "mood", value: moodStreak },
+    { label: "water", value: waterStreak },
+    { label: "gratitude", value: gratitudeStreak },
+    { label: "challenge", value: challengeStreak }
+  ].sort((a, b) => b.value - a.value)[0];
+
+  insightSummary.innerText = strongest.value > 0
+    ? `Great momentum in ${strongest.label} tracking. Keep the streak alive today!`
+    : "Start logging today to build your first streak and unlock deeper insights.";
+
+  updateWellnessScore();
+
+  const currentScore = Number((wellnessScoreEl?.innerText || "0/100").split("/")[0]) || 0;
+  queueInsightsPersist({
+    moodStreak,
+    waterStreak,
+    gratitudeStreak,
+    challengeStreak,
+    taskCompletion,
+    avgSleep: Number(avgSleep.toFixed(1)),
+    waterGoalProgress: waterPercent,
+    wellnessScore: currentScore,
+    wellnessStatus: wellnessStatusEl.innerText || "Needs Focus",
+    dailyChallengeCompleted,
+    dailyChallenge: currentChallengeText || ""
+  });
+}
 
 // AI Companion
 function escapeHtml(text) {
@@ -619,6 +1005,242 @@ function getUserName(user) {
   if (user?.displayName && user.displayName.trim()) return user.displayName.trim();
   if (user?.email) return user.email.split("@")[0];
   return "there";
+}
+
+function rememberPrompt(promptText) {
+  if (!promptText) return;
+  aiRecentPrompts.push(promptText);
+  if (aiRecentPrompts.length > 6) aiRecentPrompts.shift();
+}
+
+function getTodayWater() {
+  const todayKey = getTodayKey();
+  return waterHistory.reduce((sum, value, index) => {
+    const dateKey = dateToKey(waterDates[index]);
+    return dateKey === todayKey ? sum + value : sum;
+  }, 0);
+}
+
+function getTodayMood() {
+  const todayKey = getTodayKey();
+  return moodHistory.reduce((lastMood, value, index) => {
+    const dateKey = dateToKey(moodDates[index]);
+    return dateKey === todayKey ? value : lastMood;
+  }, "");
+}
+
+function getTodaySleep() {
+  const todayKey = getTodayKey();
+  return sleepHistory.reduce((lastSleep, value, index) => {
+    const dateKey = dateToKey(sleepDates[index]);
+    return dateKey === todayKey ? value : lastSleep;
+  }, 0);
+}
+
+function getWellnessSnapshot() {
+  const waterToday = getTodayWater();
+  const todayGoal = waterGoal > 0 ? waterGoal : 8;
+  const moodToday = getTodayMood();
+  const sleepToday = getTodaySleep();
+  const totalTasks = taskEntries.length;
+  const doneTasks = taskEntries.filter((entry) => !!entry.completed).length;
+  const pendingTasks = taskEntries.filter((entry) => !entry.completed).length;
+  const gratitudeToday = gratitudeEntries.some((entry) => dateToKey(entry.time) === getTodayKey());
+  const score = Number((wellnessScoreEl?.innerText || "0/100").split("/")[0]) || 0;
+
+  return {
+    waterToday,
+    todayGoal,
+    moodToday,
+    sleepToday,
+    totalTasks,
+    doneTasks,
+    pendingTasks,
+    gratitudeToday,
+    score
+  };
+}
+
+async function tryAiAction(input) {
+  const msg = input.trim();
+  const lower = msg.toLowerCase();
+
+  const taskMatch = msg.match(/^(add|create)\s+(a\s+)?task\s*[:\-]?\s*(.+)$/i);
+  if (taskMatch && taskMatch[3]) {
+    task.value = taskMatch[3].trim();
+    await addTask();
+    return `✅ Added task: ${taskMatch[3].trim()}`;
+  }
+
+  const waterGoalMatch = lower.match(/(?:set|update)\s+(?:my\s+)?water\s+goal\s+(?:to\s+)?(\d+)/i);
+  if (waterGoalMatch) {
+    waterGoalInput.value = String(Number(waterGoalMatch[1]) || 0);
+    await setWaterGoal();
+    return `✅ Water goal updated to ${waterGoalInput.value} glasses.`;
+  }
+
+  const waterLogMatch = lower.match(/(?:log|add|track)\s+(\d+)\s*(?:glass|glasses)\s*(?:of\s+water)?/i);
+  if (waterLogMatch) {
+    waterInput.value = String(Number(waterLogMatch[1]) || 0);
+    await saveWater();
+    return `✅ Logged ${waterInput.value || waterLogMatch[1]} glasses of water.`;
+  }
+
+  const sleepMatch = lower.match(/(?:log|save|track)\s+sleep\s+(?:for\s+)?(\d+(?:\.\d+)?)\s*(?:h|hr|hrs|hour|hours)?/i);
+  if (sleepMatch) {
+    sleepInput.value = sleepMatch[1];
+    await saveSleep();
+    return `✅ Sleep logged: ${sleepMatch[1]} hours.`;
+  }
+
+  const moodMatch = lower.match(/(?:log|set|save)\s+mood\s+(happy|neutral|low)/i);
+  if (moodMatch) {
+    const map = { happy: "😊 Happy", neutral: "😐 Neutral", low: "😔 Low" };
+    mood.value = map[moodMatch[1]] || mood.value;
+    await saveMood();
+    return `✅ Mood logged: ${mood.value}`;
+  }
+
+  const gratitudeMatch = msg.match(/^(?:add|log|save)\s+gratitude\s*[:\-]?\s*(.+)$/i);
+  if (gratitudeMatch && gratitudeMatch[1]) {
+    gratitudeInput.value = gratitudeMatch[1].trim();
+    await saveGratitude();
+    return `✅ Gratitude saved.`;
+  }
+
+  const reminderMatch = msg.match(/^remind\s+me\s+to\s+(.+)\s+in\s+(\d+)\s*(m|min|mins|minute|minutes)$/i);
+  if (reminderMatch) {
+    reminderText.value = reminderMatch[1].trim();
+    reminderMinutes.value = String(Number(reminderMatch[2]) || 0);
+    addReminder();
+    return `✅ Reminder set: ${reminderMatch[1].trim()} in ${reminderMatch[2]} min.`;
+  }
+
+  return null;
+}
+
+async function buildSmartAiResponse(input, user) {
+  const actionResult = await tryAiAction(input);
+  if (actionResult) {
+    return {
+      response: `${actionResult}<br>🤖 I can also run more actions: <i>add task ..., set water goal 8, log mood happy, log sleep 7, remind me to ... in 20 min</i>.`,
+      isHtml: true
+    };
+  }
+
+  const msg = input.toLowerCase();
+  const name = getUserName(user);
+  const hour = new Date().getHours();
+  const greeting = hour < 12 ? "Good morning" : hour < 18 ? "Good afternoon" : "Good evening";
+  const snapshot = getWellnessSnapshot();
+  const recentContext = aiRecentPrompts.slice(-3).join(" • ");
+
+  const isGreeting = /\b(hi|hello|hey|yo|hola)\b/.test(msg);
+  const asksIdentity = /who are you|what are you/.test(msg);
+  const asksAnalysis = /analyze|analysis|report|conclude|insight|summary|score/.test(msg);
+  const asksPlan = /plan|routine|today|schedule|what should i do/.test(msg);
+  const stressSignal = /stress|anxious|anxiety|overwhelm|panic|sad|low|depressed|down/.test(msg);
+  const sleepSignal = /sleep|tired|exhausted|fatigue|insomnia/.test(msg);
+  const waterSignal = /water|hydrate|hydration|thirsty/.test(msg);
+  const productivitySignal = /task|focus|productivity|procrastin|work|study/.test(msg);
+  const gratitudeSignal = /gratitude|thankful|grateful/.test(msg);
+  const capabilitySignal = /help|what can you do|features|assist|commands/.test(msg);
+
+  if (isGreeting) {
+    const pending = snapshot.pendingTasks;
+    const waterLeft = Math.max(0, snapshot.todayGoal - snapshot.waterToday);
+    return {
+      response: `${greeting}, ${name}! 🌟 Quick check: score ${snapshot.score}/100, ${pending} pending task${pending === 1 ? "" : "s"}, ${waterLeft} glass${waterLeft === 1 ? "" : "es"} left for hydration. Want an execution plan for the next 60 minutes?`,
+      isHtml: false
+    };
+  }
+
+  if (asksIdentity) {
+    return {
+      response: "I’m your NovaFix coach 🤖 I read your live dashboard data, remember recent context, and can execute logging actions directly from chat.",
+      isHtml: false
+    };
+  }
+
+  if (asksAnalysis) {
+    const waterPct = Math.round((snapshot.waterToday / snapshot.todayGoal) * 100);
+    const taskPct = snapshot.totalTasks ? Math.round((snapshot.doneTasks / snapshot.totalTasks) * 100) : 0;
+    const moodText = snapshot.moodToday || "Not logged";
+
+    let actions = [];
+    if (snapshot.waterToday < snapshot.todayGoal) actions.push(`Drink ${Math.max(0, snapshot.todayGoal - snapshot.waterToday)} more glass${snapshot.todayGoal - snapshot.waterToday === 1 ? "" : "es"}.`);
+    if (snapshot.sleepToday < 7) actions.push("Target 7–8 hours sleep tonight.");
+    if (snapshot.pendingTasks > 0) actions.push("Finish 1 pending task in the next 25 minutes.");
+    if (!snapshot.gratitudeToday) actions.push("Add one gratitude line before bed.");
+    if (!snapshot.moodToday) actions.push("Log your mood to improve prediction quality.");
+    while (actions.length < 3) actions.push("Keep momentum with one small healthy action now.");
+
+    return {
+      response: `📊 <b>Deep Wellness Analysis</b><br>⭐ Score: <b>${snapshot.score}/100</b><br>💧 Water: ${snapshot.waterToday}/${snapshot.todayGoal} (${Math.max(0, waterPct)}%)<br>💤 Sleep today: ${snapshot.sleepToday || 0} hrs<br>🧘 Mood: ${moodText}<br>📌 Tasks done: ${snapshot.doneTasks}/${snapshot.totalTasks} (${taskPct}%)<br>🙏 Gratitude today: ${snapshot.gratitudeToday ? "Yes" : "No"}<br><br><b>Best next moves</b><br>1) ${actions[0]}<br>2) ${actions[1]}<br>3) ${actions[2]}${recentContext ? `<br><br>🧠 Recent context: <i>${escapeHtml(recentContext)}</i>` : ""}`,
+      isHtml: true
+    };
+  }
+
+  if (asksPlan) {
+    const planItems = [
+      snapshot.pendingTasks > 0 ? `00–25 min: pick 1 pending task and do deep focus.` : "00–25 min: define one meaningful task.",
+      snapshot.waterToday < snapshot.todayGoal ? `25–30 min: drink ${Math.max(1, snapshot.todayGoal - snapshot.waterToday)} glass(es) and quick reset.` : "25–30 min: quick reset and stretch.",
+      snapshot.sleepToday < 7 ? "30–50 min: finish key work and set wind-down reminder." : "30–50 min: complete second priority task.",
+      snapshot.gratitudeToday ? "50–60 min: reflection note + next action." : "50–60 min: write one gratitude line + next action."
+    ];
+    return {
+      response: `🗂️ <b>Your 60-min execution plan</b><br>• ${planItems[0]}<br>• ${planItems[1]}<br>• ${planItems[2]}<br>• ${planItems[3]}`,
+      isHtml: true
+    };
+  }
+
+  if (stressSignal) {
+    return {
+      response: `I hear you, ${name}. Let’s use a fast reset: 6 breathing rounds (4-4-6), drink water, then do one 10-minute micro-task. Reply “start reset” and I’ll guide step-by-step.`,
+      isHtml: false
+    };
+  }
+
+  if (sleepSignal) {
+    return {
+      response: `Sleep protocol: no caffeine after 2 PM, dim lights 60 min pre-bed, and no scrolling in bed. Latest logged sleep: ${snapshot.sleepToday || (sleepHistory[sleepHistory.length-1] || 0)} hrs.`,
+      isHtml: false
+    };
+  }
+
+  if (waterSignal) {
+    const left = Math.max(0, snapshot.todayGoal - snapshot.waterToday);
+    return {
+      response: `Hydration check 💧 You’re at ${snapshot.waterToday}/${snapshot.todayGoal}. Remaining: ${left} glass${left === 1 ? "" : "es"}. Want me to set a reminder right now?`,
+      isHtml: false
+    };
+  }
+
+  if (productivitySignal) {
+    return {
+      response: `Focus mode ⚡ Completed ${snapshot.doneTasks}/${snapshot.totalTasks}. Try: pick one pending task, 25-min timer, then 5-min break. Say “add task …” and I’ll add it instantly.`,
+      isHtml: false
+    };
+  }
+
+  if (gratitudeSignal) {
+    return {
+      response: "Gratitude prompt: ‘One small thing that made today easier was…’ Want me to save your line now? Say: add gratitude <your text> 🙏",
+      isHtml: false
+    };
+  }
+
+  if (capabilitySignal) {
+    return {
+      response: "I can analyze wellness, create plans, coach stress/sleep/focus, and execute commands. Try: add task..., set water goal 8, log mood happy, log sleep 7, add gratitude..., remind me to ... in 20 min.",
+      isHtml: false
+    };
+  }
+
+  return {
+    response: "I can either coach or take action. If you want actions, use commands like: add task..., log sleep 7, set water goal 8, add gratitude..., remind me to ... in 10 min.",
+    isHtml: false
+  };
 }
 
 function setChatText(textNode, text, isHtml) {
@@ -683,6 +1305,7 @@ function renderChatPair(entry) {
 
 async function loadAiChats(userId) {
   chat.innerHTML = "";
+  aiRecentPrompts.length = 0;
 
   try {
     const snapshot = await getDocs(collection(db, "users", userId, "aiChats"));
@@ -695,6 +1318,7 @@ async function loadAiChats(userId) {
       });
 
     docs.forEach((entry) => {
+      if (entry.userMessage) rememberPrompt(entry.userMessage);
       renderChatPair(entry);
     });
   } catch (err) {
@@ -729,6 +1353,7 @@ async function clearAiChats() {
     const snapshot = await getDocs(collection(db, "users", user.uid, "aiChats"));
     await Promise.all(snapshot.docs.map((docSnap) => deleteDoc(docSnap.ref)));
     chat.innerHTML = "";
+    aiRecentPrompts.length = 0;
   } catch (err) {
     console.error("Failed to clear AI chats:", err);
     alert(`Could not clear chats: ${err.message || "Unknown error"}`);
@@ -744,27 +1369,10 @@ async function aiChat(){
     return;
   }
 
-  let msg=input.toLowerCase();
-  let response="";
-  let responseIsHtml = false;
-
-  if(msg.match(/hi|hello|hey/)) {
-    const currentUser = getUserName(user);
-    response = `Hey there! What's up, ${currentUser}? 😊`;
-  }
-  else if(msg.match(/who are you/)) response="I am your NovaFix wellness companion 🌱";
-  else if(msg.match(/analyze|analysis|report|conclude/)){
-    if(moodHistory.length===0&&waterHistory.length===0&&sleepHistory.length===0){
-      response="You haven’t logged enough data yet for analysis. Start with mood, water, or sleep 🌱";
-    } else {
-      responseIsHtml = true;
-      response="📊 <b>Your Wellness Analysis</b><br>";
-      if(sleepHistory.length){const lastSleep=sleepHistory[sleepHistory.length-1];response+=`💤 Sleep: ${lastSleep} hrs<br>`;}
-      if(waterHistory.length){const totalWater=waterHistory.reduce((a,b)=>a+b,0);response+=`💧 Water today: ${totalWater} glasses<br>`;}
-      if(moodHistory.length){const lastMood=moodHistory[moodHistory.length-1];response+=`🧘 Mood: ${lastMood}<br>`;}
-      response+="<br>✨ Tip: Consistency beats intensity. Hydrate well, protect sleep, and track mood daily.";
-    }
-  } else response="I’m listening 🌿 Tell me about your mood, energy, or type *analyze* to see your wellness report.";
+  const smart = await buildSmartAiResponse(input, user);
+  const response = smart.response;
+  const responseIsHtml = smart.isHtml;
+  rememberPrompt(input);
 
   const chatId = await storeAiChat(user.uid, input, response, responseIsHtml);
   renderChatPair({
@@ -808,6 +1416,29 @@ function renderTask(entry) {
   const li = document.createElement("li");
   const span = document.createElement("span");
   span.textContent = entry.text;
+  if (entry.completed) span.classList.add("task-done");
+
+  const toggleBtn = document.createElement("button");
+  toggleBtn.textContent = entry.completed ? "✅" : "⬜";
+  toggleBtn.title = "Toggle complete";
+  toggleBtn.onclick = async () => {
+    entry.completed = !entry.completed;
+    span.classList.toggle("task-done", entry.completed);
+    toggleBtn.textContent = entry.completed ? "✅" : "⬜";
+
+    const listIndex = taskEntries.findIndex((taskItem) => taskItem.id === entry.id);
+    if (listIndex >= 0) taskEntries[listIndex].completed = entry.completed;
+    updateInsights();
+
+    const user = auth.currentUser;
+    if (!user || !entry.id) return;
+    try {
+      await updateDoc(doc(db, "users", user.uid, "tasks", entry.id), { completed: entry.completed });
+    } catch (err) {
+      console.error("Failed to toggle task:", err);
+      alert(`Could not update task status: ${err.message || "Unknown error"}`);
+    }
+  };
 
   const editBtn = document.createElement("button");
   editBtn.textContent = "✏️";
@@ -831,11 +1462,17 @@ function renderTask(entry) {
   deleteBtn.onclick = async () => {
     const user = auth.currentUser;
     if (!user || !entry.id) {
+      const fallbackIndex = taskEntries.findIndex((taskItem) => taskItem.id === entry.id);
+      if (fallbackIndex >= 0) taskEntries.splice(fallbackIndex, 1);
+      updateInsights();
       li.remove();
       return;
     }
     try {
       await deleteDoc(doc(db, "users", user.uid, "tasks", entry.id));
+      const listIndex = taskEntries.findIndex((taskItem) => taskItem.id === entry.id);
+      if (listIndex >= 0) taskEntries.splice(listIndex, 1);
+      updateInsights();
       li.remove();
     } catch (err) {
       console.error("Failed to delete task:", err);
@@ -843,12 +1480,13 @@ function renderTask(entry) {
     }
   };
 
-  li.append(span, editBtn, deleteBtn);
+  li.append(span, toggleBtn, editBtn, deleteBtn);
   taskList.appendChild(li);
 }
 
 async function loadTasks(userId) {
   taskList.innerHTML = "";
+  taskEntries.length = 0;
   try {
     const snapshot = await getDocs(collection(db, "users", userId, "tasks"));
     const docs = snapshot.docs
@@ -858,7 +1496,15 @@ async function loadTasks(userId) {
         const bTime = b.time?.toMillis?.() ?? new Date(b.time || 0).getTime();
         return aTime - bTime;
       });
-    docs.forEach((entry) => renderTask(entry));
+    docs.forEach((entry) => {
+      const normalized = {
+        ...entry,
+        completed: !!entry.completed
+      };
+      taskEntries.push(normalized);
+      renderTask(normalized);
+    });
+    updateInsights();
   } catch (err) {
     console.error("Failed to load tasks:", err);
   }
@@ -877,9 +1523,13 @@ async function addTask(){
   try {
     const ref = await addDoc(collection(db, "users", user.uid, "tasks"), {
       text: t,
+      completed: false,
       time: serverTimestamp()
     });
-    renderTask({ id: ref.id, text: t, time: new Date() });
+    const newTask = { id: ref.id, text: t, completed: false, time: new Date() };
+    taskEntries.push(newTask);
+    renderTask(newTask);
+    updateInsights();
     task.value="";
   } catch (err) {
     console.error("Failed to save task:", err);
@@ -935,6 +1585,7 @@ async function deleteMoodLog(moodId, moodElement, moodValue) {
 async function loadMoods(userId) {
   moodLogs.innerHTML = "";
   moodHistory.length = 0;
+  moodDates.length = 0;
 
   try {
     const snapshot = await getDocs(collection(db, "users", userId, "moods"));
@@ -948,8 +1599,11 @@ async function loadMoods(userId) {
 
     docs.forEach((entry) => {
       moodHistory.push(entry.mood);
+      const moodTime = entry.time?.toDate?.() ?? new Date(entry.time || Date.now());
+      moodDates.push(moodTime);
       renderMoodLog(entry);
     });
+    updateInsights();
   } catch (err) {
     console.error("Failed to load mood logs:", err);
   }
@@ -976,7 +1630,9 @@ async function saveMood() {
     );
 
     moodHistory.push(moodValue);
+    moodDates.push(new Date());
     renderMoodLog({ id: moodRef.id, mood: moodValue, time: new Date() });
+    updateInsights();
   } catch (err) {
     console.error("Firestore write failed:", err);
     alert(`Could not save mood: ${err.message || "Unknown error"}`);
@@ -989,6 +1645,7 @@ function updateWaterProgress() {
   const sum = waterHistory.reduce((a, b) => a + b, 0);
   const percent = waterGoal > 0 ? Math.round((sum / waterGoal) * 100) : 0;
   waterProgress.innerText = `${sum}/${waterGoal} (${percent}%)`;
+  updateInsights();
 }
 
 async function setWaterGoal(){
@@ -1013,6 +1670,7 @@ async function setWaterGoal(){
 
 async function loadWaterData(userId) {
   waterHistory.length = 0;
+  waterDates.length = 0;
 
   try {
     const waterSettings = await getDoc(doc(db, "users", userId, "settings", "water"));
@@ -1029,7 +1687,11 @@ async function loadWaterData(userId) {
       });
 
     docs.forEach((entry) => {
-      if (entry.glasses) waterHistory.push(entry.glasses);
+      if (entry.glasses) {
+        waterHistory.push(entry.glasses);
+        const waterTime = entry.time?.toDate?.() ?? new Date(entry.time || Date.now());
+        waterDates.push(waterTime);
+      }
     });
 
     updateWaterProgress();
@@ -1055,6 +1717,7 @@ async function saveWater() {
       glasses: v,
       time: serverTimestamp()
     });
+    waterDates.push(new Date());
     updateWaterProgress();
     waterInput.value = "";
   } catch (err) {
@@ -1066,6 +1729,7 @@ async function saveWater() {
 // Sleep
 async function loadSleepData(userId) {
   sleepHistory.length = 0;
+  sleepDates.length = 0;
   sleepResult.innerText = "";
 
   try {
@@ -1079,13 +1743,18 @@ async function loadSleepData(userId) {
       });
 
     docs.forEach((entry) => {
-      if (entry.hours) sleepHistory.push(entry.hours);
+      if (entry.hours) {
+        sleepHistory.push(entry.hours);
+        const sleepTime = entry.time?.toDate?.() ?? new Date(entry.time || Date.now());
+        sleepDates.push(sleepTime);
+      }
     });
 
     if (sleepHistory.length) {
       const latest = sleepHistory[sleepHistory.length - 1];
       sleepResult.innerText = `${latest} hrs 💤`;
     }
+    updateInsights();
   } catch (err) {
     console.error("Failed to load sleep logs:", err);
   }
@@ -1102,7 +1771,9 @@ async function saveSleep(){
   if (!hours) return;
 
   sleepHistory.push(hours);
+  sleepDates.push(new Date());
   sleepResult.innerText = `${hours} hrs 💤`;
+  updateInsights();
 
   try {
     await addDoc(collection(db, "users", user.uid, "sleepLogs"), {
@@ -1147,6 +1818,9 @@ function renderGratitude(entry) {
       });
       entry.text = nextText.trim();
       label.textContent = `${rawTime.toLocaleTimeString()} - ${entry.text}`;
+      const listIndex = gratitudeEntries.findIndex((item) => item.id === entry.id);
+      if (listIndex >= 0) gratitudeEntries[listIndex].text = entry.text;
+      updateInsights();
     } catch (err) {
       console.error("Failed to edit gratitude log:", err);
       alert(`Could not update gratitude log: ${err.message || "Unknown error"}`);
@@ -1158,12 +1832,18 @@ function renderGratitude(entry) {
   deleteBtn.onclick = async () => {
     const user = auth.currentUser;
     if (!user || !entry.id) {
+      const fallbackIndex = gratitudeEntries.findIndex((item) => item.id === entry.id);
+      if (fallbackIndex >= 0) gratitudeEntries.splice(fallbackIndex, 1);
+      updateInsights();
       row.remove();
       return;
     }
 
     try {
       await deleteDoc(doc(db, "users", user.uid, "gratitudeLogs", entry.id));
+      const listIndex = gratitudeEntries.findIndex((item) => item.id === entry.id);
+      if (listIndex >= 0) gratitudeEntries.splice(listIndex, 1);
+      updateInsights();
       row.remove();
     } catch (err) {
       console.error("Failed to delete gratitude log:", err);
@@ -1177,6 +1857,7 @@ function renderGratitude(entry) {
 
 async function loadGratitude(userId) {
   gratitudeLogs.innerHTML = "";
+  gratitudeEntries.length = 0;
 
   try {
     const snapshot = await getDocs(collection(db, "users", userId, "gratitudeLogs"));
@@ -1188,7 +1869,11 @@ async function loadGratitude(userId) {
         return aTime - bTime;
       });
 
-    docs.forEach((entry) => renderGratitude(entry));
+    docs.forEach((entry) => {
+      gratitudeEntries.push(entry);
+      renderGratitude(entry);
+    });
+    updateInsights();
   } catch (err) {
     console.error("Failed to load gratitude logs:", err);
   }
@@ -1209,11 +1894,230 @@ async function saveGratitude(){
       text: t,
       time: serverTimestamp()
     });
-    renderGratitude({ id: ref.id, text: t, time: new Date() });
+    const entry = { id: ref.id, text: t, time: new Date() };
+    gratitudeEntries.push(entry);
+    renderGratitude(entry);
+    updateInsights();
     gratitudeInput.value="";
   } catch (err) {
     console.error("Failed to save gratitude log:", err);
     alert(`Could not save gratitude log: ${err.message || "Unknown error"}`);
+  }
+}
+
+async function exportAllData() {
+  const user = auth.currentUser;
+  if (!user) {
+    alert("Please sign in first.");
+    return;
+  }
+
+  try {
+    const waterSettingsSnap = await getDoc(doc(db, "users", user.uid, "settings", "water"));
+    const dailyChallengeSnap = await getDoc(doc(db, "users", user.uid, "settings", "dailyChallenge"));
+    const insightsSnap = await getDoc(doc(db, "users", user.uid, "insights", "current"));
+    const [
+      moodsSnap,
+      tasksSnap,
+      waterSnap,
+      sleepSnap,
+      gratitudeSnap,
+      aiSnap,
+      challengeHistorySnap
+    ] = await Promise.all([
+      getDocs(collection(db, "users", user.uid, "moods")),
+      getDocs(collection(db, "users", user.uid, "tasks")),
+      getDocs(collection(db, "users", user.uid, "waterIntake")),
+      getDocs(collection(db, "users", user.uid, "sleepLogs")),
+      getDocs(collection(db, "users", user.uid, "gratitudeLogs")),
+      getDocs(collection(db, "users", user.uid, "aiChats")),
+      getDocs(collection(db, "users", user.uid, "challengeHistory"))
+    ]);
+
+    const toExport = {
+      exportedAt: new Date().toISOString(),
+      user: {
+        uid: user.uid,
+        email: user.email || null,
+        name: user.displayName || null
+      },
+      waterSettings: waterSettingsSnap.exists() ? waterSettingsSnap.data() : null,
+      dailyChallengeSettings: dailyChallengeSnap.exists() ? dailyChallengeSnap.data() : null,
+      insightsCurrent: insightsSnap.exists() ? insightsSnap.data() : null,
+      moods: moodsSnap.docs.map((docSnap) => ({ id: docSnap.id, ...docSnap.data() })),
+      tasks: tasksSnap.docs.map((docSnap) => ({ id: docSnap.id, ...docSnap.data() })),
+      waterIntake: waterSnap.docs.map((docSnap) => ({ id: docSnap.id, ...docSnap.data() })),
+      sleepLogs: sleepSnap.docs.map((docSnap) => ({ id: docSnap.id, ...docSnap.data() })),
+      gratitudeLogs: gratitudeSnap.docs.map((docSnap) => ({ id: docSnap.id, ...docSnap.data() })),
+      aiChats: aiSnap.docs.map((docSnap) => ({ id: docSnap.id, ...docSnap.data() })),
+      challengeHistory: challengeHistorySnap.docs.map((docSnap) => ({ id: docSnap.id, ...docSnap.data() }))
+    };
+
+    const blob = new Blob([JSON.stringify(toExport, null, 2)], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `novafix-export-${new Date().toISOString().slice(0, 10)}.json`;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    URL.revokeObjectURL(url);
+  } catch (err) {
+    console.error("Failed to export data:", err);
+    alert(`Could not export data: ${err.message || "Unknown error"}`);
+  }
+}
+
+function normalizeExportTime(value) {
+  if (!value) return new Date();
+
+  if (typeof value === "string" || typeof value === "number") {
+    const asDate = new Date(value);
+    if (!Number.isNaN(asDate.getTime())) return asDate;
+  }
+
+  if (typeof value === "object") {
+    if (typeof value.seconds === "number") {
+      return new Date((value.seconds * 1000) + Math.floor((value.nanoseconds || 0) / 1e6));
+    }
+    if (typeof value._seconds === "number") {
+      return new Date((value._seconds * 1000) + Math.floor((value._nanoseconds || 0) / 1e6));
+    }
+  }
+
+  const fallback = new Date(value);
+  if (!Number.isNaN(fallback.getTime())) return fallback;
+  return new Date();
+}
+
+function startImportData() {
+  const user = auth.currentUser;
+  if (!user) {
+    alert("Please sign in first.");
+    return;
+  }
+  if (importFileInput) importFileInput.click();
+}
+
+async function clearUserCollection(userId, collectionName) {
+  const snapshot = await getDocs(collection(db, "users", userId, collectionName));
+  await Promise.all(snapshot.docs.map((docSnap) => deleteDoc(docSnap.ref)));
+}
+
+async function importDataFileChange(event) {
+  const user = auth.currentUser;
+  const selectedFile = event?.target?.files?.[0];
+
+  if (!user || !selectedFile) return;
+
+  const confirmed = confirm("Warning: current data will be destroyed and new data will be imported. Continue?");
+  if (!confirmed) {
+    event.target.value = "";
+    return;
+  }
+
+  try {
+    const rawText = await selectedFile.text();
+    const payload = JSON.parse(rawText);
+
+    const targetCollections = ["moods", "tasks", "waterIntake", "sleepLogs", "gratitudeLogs", "aiChats", "challengeHistory"];
+    await Promise.all(targetCollections.map((name) => clearUserCollection(user.uid, name)));
+    await deleteDoc(doc(db, "users", user.uid, "settings", "water")).catch(() => {});
+    await deleteDoc(doc(db, "users", user.uid, "settings", "dailyChallenge")).catch(() => {});
+    await deleteDoc(doc(db, "users", user.uid, "insights", "current")).catch(() => {});
+
+    const moods = Array.isArray(payload.moods) ? payload.moods : [];
+    const tasks = Array.isArray(payload.tasks) ? payload.tasks : [];
+    const waterIntake = Array.isArray(payload.waterIntake) ? payload.waterIntake : [];
+    const sleepLogs = Array.isArray(payload.sleepLogs) ? payload.sleepLogs : [];
+    const gratitudeLogs = Array.isArray(payload.gratitudeLogs) ? payload.gratitudeLogs : [];
+    const aiChats = Array.isArray(payload.aiChats) ? payload.aiChats : [];
+    const challengeHistory = Array.isArray(payload.challengeHistory) ? payload.challengeHistory : [];
+
+    await Promise.all(moods.map((entry) => addDoc(collection(db, "users", user.uid, "moods"), {
+      mood: entry.mood || "",
+      uid: user.uid,
+      email: user.email || null,
+      time: normalizeExportTime(entry.time)
+    })));
+
+    await Promise.all(tasks.map((entry) => addDoc(collection(db, "users", user.uid, "tasks"), {
+      text: entry.text || "",
+      completed: !!entry.completed,
+      time: normalizeExportTime(entry.time)
+    })));
+
+    await Promise.all(waterIntake.map((entry) => addDoc(collection(db, "users", user.uid, "waterIntake"), {
+      glasses: Number(entry.glasses) || 0,
+      time: normalizeExportTime(entry.time)
+    })));
+
+    await Promise.all(sleepLogs.map((entry) => addDoc(collection(db, "users", user.uid, "sleepLogs"), {
+      hours: Number(entry.hours) || 0,
+      time: normalizeExportTime(entry.time)
+    })));
+
+    await Promise.all(gratitudeLogs.map((entry) => addDoc(collection(db, "users", user.uid, "gratitudeLogs"), {
+      text: entry.text || "",
+      time: normalizeExportTime(entry.time)
+    })));
+
+    await Promise.all(aiChats.map((entry) => addDoc(collection(db, "users", user.uid, "aiChats"), {
+      userMessage: entry.userMessage || "",
+      aiResponse: entry.aiResponse || "",
+      aiResponseIsHtml: !!entry.aiResponseIsHtml,
+      createdAt: normalizeExportTime(entry.createdAt)
+    })));
+
+    await Promise.all(challengeHistory.map((entry) => {
+      const dateKey = entry.dateKey || (typeof entry.id === "string" ? entry.id : "");
+      if (!dateKey) return Promise.resolve();
+      return setDoc(doc(db, "users", user.uid, "challengeHistory", dateKey), {
+        completed: !!entry.completed,
+        challenge: entry.challenge || "",
+        dateKey,
+        updatedAt: normalizeExportTime(entry.updatedAt || entry.time)
+      }, { merge: true });
+    }));
+
+    if (payload.waterSettings && typeof payload.waterSettings.goal !== "undefined") {
+      await setDoc(doc(db, "users", user.uid, "settings", "water"), {
+        goal: Number(payload.waterSettings.goal) || 0
+      }, { merge: true });
+    }
+
+    if (payload.dailyChallengeSettings) {
+      await setDoc(doc(db, "users", user.uid, "settings", "dailyChallenge"), {
+        challenge: payload.dailyChallengeSettings.challenge || "",
+        completed: !!payload.dailyChallengeSettings.completed,
+        dateKey: payload.dailyChallengeSettings.dateKey || getTodayKey(),
+        updatedAt: normalizeExportTime(payload.dailyChallengeSettings.updatedAt)
+      }, { merge: true });
+    }
+
+    if (payload.insightsCurrent) {
+      await setDoc(doc(db, "users", user.uid, "insights", "current"), {
+        ...payload.insightsCurrent,
+        updatedAt: normalizeExportTime(payload.insightsCurrent.updatedAt)
+      }, { merge: true });
+    }
+
+    await Promise.all([
+      loadDailyChallenge(user.uid),
+      loadMoods(user.uid),
+      loadAiChats(user.uid),
+      loadTasks(user.uid),
+      loadWaterData(user.uid),
+      loadSleepData(user.uid),
+      loadGratitude(user.uid)
+    ]);
+
+    alert("✅ Data import complete.");
+  } catch (err) {
+    console.error("Failed to import data:", err);
+    alert(`Could not import data: ${err.message || "Unknown error"}`);
+  } finally {
+    event.target.value = "";
   }
 }
 
@@ -1234,20 +2138,113 @@ const dailyChallenges = [
 
 // ---------- Function to pick a random daily challenge ----------
 function pickDailyChallenge() {
-  const challenge = dailyChallenges[Math.floor(Math.random() * dailyChallenges.length)];
-  const dailyChallengeElement = document.getElementById("dailyChallenge");
-  const challengeResultElement = document.getElementById("challengeResult");
+  const todayKey = getTodayKey();
+  const challenge = pickChallengeForDate(todayKey);
+  currentChallengeDateKey = todayKey;
+  currentChallengeText = challenge;
   dailyChallengeElement.innerText = challenge;
-  challengeResultElement.innerText = ""; // clear previous completion
+  challengeResultElement.innerText = "";
+  dailyChallengeCompleted = false;
+  updateInsights();
+}
+
+async function saveDailyChallengeState() {
+  const user = auth.currentUser;
+  if (!user) return;
+
+  const todayKey = getTodayKey();
+  try {
+    await setDoc(doc(db, "users", user.uid, "settings", "dailyChallenge"), {
+      challenge: currentChallengeText,
+      completed: dailyChallengeCompleted,
+      dateKey: todayKey,
+      timeZone: userTimeZone,
+      updatedAt: serverTimestamp()
+    }, { merge: true });
+
+    if (dailyChallengeCompleted) {
+      await setDoc(doc(db, "users", user.uid, "challengeHistory", todayKey), {
+        completed: true,
+        challenge: currentChallengeText,
+        dateKey: todayKey,
+        updatedAt: serverTimestamp()
+      }, { merge: true });
+    }
+  } catch (err) {
+    console.error("Failed to save daily challenge state:", err);
+  }
+}
+
+async function loadDailyChallenge(userId) {
+  const todayKey = getTodayKey();
+  challengeDates.length = 0;
+
+  try {
+    const [challengeSettingsSnap, historySnap] = await Promise.all([
+      getDoc(doc(db, "users", userId, "settings", "dailyChallenge")),
+      getDocs(collection(db, "users", userId, "challengeHistory"))
+    ]);
+
+    historySnap.docs.forEach((docSnap) => {
+      const data = docSnap.data();
+      if (!data.completed) return;
+      const key = data.dateKey || docSnap.id;
+      const parsed = dateKeyToDate(key);
+      if (parsed) challengeDates.push(parsed);
+    });
+
+    let challenge = pickChallengeForDate(todayKey);
+    let completed = false;
+
+    if (challengeSettingsSnap.exists()) {
+      const settings = challengeSettingsSnap.data();
+      if (settings.dateKey === todayKey) {
+        challenge = settings.challenge || challenge;
+        completed = !!settings.completed;
+      }
+    }
+
+    currentChallengeDateKey = todayKey;
+    currentChallengeText = challenge;
+    dailyChallengeCompleted = completed;
+    dailyChallengeElement.innerText = challenge;
+    challengeResultElement.innerText = completed ? "✅ Challenge completed! Great job!" : "";
+
+    if (completed) {
+      const parsedToday = dateKeyToDate(todayKey);
+      if (parsedToday && !challengeDates.some((date) => dateToKey(date) === todayKey)) {
+        challengeDates.push(parsedToday);
+      }
+    }
+
+    await saveDailyChallengeState();
+    updateInsights();
+  } catch (err) {
+    console.error("Failed to load daily challenge:", err);
+    pickDailyChallenge();
+  }
 }
 
 // Initialize daily challenge on page load
 pickDailyChallenge();
 
 // Complete challenge function
-function completeChallenge() {
-  const challengeResultElement = document.getElementById("challengeResult");
+async function completeChallenge() {
+  if (dailyChallengeCompleted) {
+    challengeResultElement.innerText = "✅ Challenge already completed for today.";
+    return;
+  }
+
+  dailyChallengeCompleted = true;
+  const todayKey = getTodayKey();
+  const parsedToday = dateKeyToDate(todayKey);
+  if (parsedToday && !challengeDates.some((date) => dateToKey(date) === todayKey)) {
+    challengeDates.push(parsedToday);
+  }
+
   challengeResultElement.innerText = "✅ Challenge completed! Great job!";
+  updateInsights();
+  await saveDailyChallengeState();
 }
 
 Object.assign(window, {
@@ -1266,7 +2263,11 @@ Object.assign(window, {
   timeTraveller,
   newQuote,
   saveGratitude,
-  completeChallenge
+  completeChallenge,
+  exportAllData,
+  startImportData,
+  importDataFileChange,
+  handleGoogleAuth
 });
 
 </script>
