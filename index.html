@@ -513,8 +513,7 @@ import {
   signOut,
   updateProfile,
   GoogleAuthProvider,
-  signInWithPopup,
-  sendEmailVerification
+  signInWithPopup
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
 
 // 🔥 Your Firebase Config
@@ -617,26 +616,6 @@ try {
 
     setTimeout(async () => {
       if (user) {
-        const isEmailPasswordUser = user.providerData.some((provider) => provider.providerId === "password");
-        if (isEmailPasswordUser && !user.emailVerified) {
-          const error = document.getElementById("signInError");
-          const verificationResult = await requestEmailVerification(user);
-          const errorCode = verificationResult.error?.code || "";
-          const isTooManyRequests = errorCode.includes("too-many-requests");
-          await signOut(auth);
-          error.style.display = "block";
-          if (verificationResult.ok) {
-            error.innerText = "Please verify your email before signing in. A verification email has been sent (check spam/promotions too).";
-          } else if (verificationResult.skipped) {
-            error.innerText = `Please verify your email before signing in. A verification email was sent recently. Try again in ${formatCooldown(verificationResult.cooldownMs)}.`;
-          } else if (isTooManyRequests) {
-            error.innerText = "Too many verification requests. Please wait a while, then try again.";
-          } else {
-            error.innerText = `Please verify your email before signing in. We couldn't send a verification email right now: ${verificationResult.error?.message || "Unknown error"}`;
-          }
-          return;
-        }
-
         dashboard.style.display = "grid";
         signOutBtn.style.display = "block";
         signInModal.style.display = "none";
@@ -692,53 +671,6 @@ try {
 }
 
 setTimeout(hideSplash, 2000);
-
-const EMAIL_VERIFY_RESEND_COOLDOWN_MS = 10 * 60 * 1000;
-
-function getEmailVerificationCooldownKey(email) {
-  return `novafix_verify_sent_at_${(email || "").toLowerCase()}`;
-}
-
-function getEmailVerificationCooldownRemaining(email) {
-  try {
-    const key = getEmailVerificationCooldownKey(email);
-    const sentAtRaw = localStorage.getItem(key);
-    const sentAt = sentAtRaw ? Number(sentAtRaw) : 0;
-    if (!sentAt) return 0;
-    const remaining = (sentAt + EMAIL_VERIFY_RESEND_COOLDOWN_MS) - Date.now();
-    return Math.max(0, remaining);
-  } catch (_) {
-    return 0;
-  }
-}
-
-function markEmailVerificationSent(email) {
-  try {
-    const key = getEmailVerificationCooldownKey(email);
-    localStorage.setItem(key, String(Date.now()));
-  } catch (_) {}
-}
-
-function formatCooldown(remainingMs) {
-  const minutes = Math.ceil(remainingMs / 60000);
-  return `${minutes} minute${minutes === 1 ? "" : "s"}`;
-}
-
-async function requestEmailVerification(user) {
-  const remainingMs = getEmailVerificationCooldownRemaining(user?.email || "");
-  if (remainingMs > 0) {
-    return { ok: false, skipped: true, cooldownMs: remainingMs, error: null };
-  }
-
-  try {
-    await sendEmailVerification(user);
-    markEmailVerificationSent(user?.email || "");
-    return { ok: true, skipped: false, cooldownMs: 0, error: null };
-  } catch (err) {
-    console.error("Failed to send verification email:", err);
-    return { ok: false, skipped: false, cooldownMs: 0, error: err };
-  }
-}
 
 // ---------- COLOR WAVES ----------
 const waves = [
@@ -805,40 +737,9 @@ async function handleAuth() {
     if (authMode === "signup") {
       const userCredential = await createUserWithEmailAndPassword(auth, email, password);
       await updateProfile(userCredential.user, { displayName: username });
-      const verificationResult = await requestEmailVerification(userCredential.user);
-      const errorCode = verificationResult.error?.code || "";
-      const isTooManyRequests = errorCode.includes("too-many-requests");
-      await signOut(auth);
-      error.style.display = "block";
-      if (verificationResult.ok) {
-        error.innerText = "Verification email sent. Please verify your email, then sign in (check spam/promotions too).";
-      } else if (verificationResult.skipped) {
-        error.innerText = `Account created. A verification email was sent recently. Try again in ${formatCooldown(verificationResult.cooldownMs)} if needed.`;
-      } else if (isTooManyRequests) {
-        error.innerText = "Account created. Too many verification requests right now; please wait and try again later.";
-      } else {
-        error.innerText = `Account created, but verification email could not be sent right now: ${verificationResult.error?.message || "Unknown error"}`;
-      }
       return;
     } else {
-      const userCredential = await signInWithEmailAndPassword(auth, email, password);
-      if (!userCredential.user.emailVerified) {
-        const verificationResult = await requestEmailVerification(userCredential.user);
-        const errorCode = verificationResult.error?.code || "";
-        const isTooManyRequests = errorCode.includes("too-many-requests");
-        await signOut(auth);
-        error.style.display = "block";
-        if (verificationResult.ok) {
-          error.innerText = "Please verify your email before signing in. A new verification email has been sent (check spam/promotions too).";
-        } else if (verificationResult.skipped) {
-          error.innerText = `Please verify your email before signing in. A verification email was sent recently. Try again in ${formatCooldown(verificationResult.cooldownMs)}.`;
-        } else if (isTooManyRequests) {
-          error.innerText = "Too many verification requests. Please wait a while, then try again.";
-        } else {
-          error.innerText = `Please verify your email before signing in. We couldn't send a verification email right now: ${verificationResult.error?.message || "Unknown error"}`;
-        }
-        return;
-      }
+      await signInWithEmailAndPassword(auth, email, password);
     }
   } catch (err) {
     error.style.display = "block";
