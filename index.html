@@ -110,6 +110,10 @@ body{
 }
 .modal-content p {margin-top: 10px; font-size: 14px; cursor: pointer;}
 
+.apple-btn{
+  background: rgba(255,255,255,0.22) !important;
+}
+
 /* HEADER */
 header{
   text-align:center;
@@ -193,6 +197,26 @@ button{
 #gratitudeLogs button,
 #reminders button{
   margin-left:12px;
+}
+
+.item-row{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:10px;
+}
+
+.item-text{
+  flex:1;
+  min-width:0;
+  word-break:break-word;
+}
+
+.item-actions{
+  display:flex;
+  align-items:center;
+  gap:8px;
+  flex-shrink:0;
 }
 
 .ai-header-row{
@@ -326,6 +350,7 @@ button{
     <input id="passwordInput" type="password" placeholder="Enter password">
     <button id="actionButton" onclick="handleAuth()">Sign In</button>
     <button id="googleAuthButton" class="google-btn" onclick="handleGoogleAuth()">Sign In with Google</button>
+    <button id="appleAuthButton" class="apple-btn" onclick="handleAppleAuth()">Sign In with Apple</button>
     <p onclick="toggleAuth()"><span id="toggleText">Don't have an account? Sign Up</span></p>
     <p id="signInError" style="color:red; display:none;">Error message here!</p>
   </div>
@@ -514,6 +539,7 @@ import {
   signOut,
   updateProfile,
   GoogleAuthProvider,
+  OAuthProvider,
   signInWithPopup
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
 
@@ -547,12 +573,16 @@ const googleProvider = new GoogleAuthProvider();
 googleProvider.setCustomParameters({
   prompt: "select_account"
 });
+const appleProvider = new OAuthProvider("apple.com");
+appleProvider.addScope("email");
+appleProvider.addScope("name");
 
 // ---------- DOM REFERENCES ----------
 const emailInput = document.getElementById("emailInput");
 const passwordInput = document.getElementById("passwordInput");
 const usernameInput = document.getElementById("usernameInput");
 const googleAuthButton = document.getElementById("googleAuthButton");
+const appleAuthButton = document.getElementById("appleAuthButton");
 const splash = document.getElementById("splash");
 const signInModal = document.getElementById("signInModal");
 const dashboard = document.querySelector(".dashboard");
@@ -711,12 +741,14 @@ function toggleAuth(){
     title.innerText="Create a NovaFix Account 🌟";
     button.innerText="Sign Up";
     googleAuthButton.innerText = "Sign Up with Google";
+    appleAuthButton.innerText = "Sign Up with Apple";
     toggleText.innerText="Already have an account? Sign In";
     usernameInput.style.display = "block";
   } else {
     title.innerText="Welcome to NovaFix 🌟";
     button.innerText="Sign In";
     googleAuthButton.innerText = "Sign In with Google";
+    appleAuthButton.innerText = "Sign In with Apple";
     toggleText.innerText="Don't have an account? Sign Up";
     usernameInput.style.display = "none";
   }
@@ -778,6 +810,24 @@ async function handleGoogleAuth() {
     error.innerText = isUnauthorizedDomain
       ? `Unauthorized domain. Current origin: ${currentOrigin}. Add '${currentHost}' in Firebase Auth > Settings > Authorized domains, then hard refresh.`
       : (err.message || "Google authentication failed.");
+  }
+}
+
+async function handleAppleAuth() {
+  const error = document.getElementById("signInError");
+  error.style.display = "none";
+
+  if (window.location.protocol === "file:") {
+    error.style.display = "block";
+    error.innerText = "Apple auth does not work on file://. Start a local server and open via http://localhost:<port>.";
+    return;
+  }
+
+  try {
+    await signInWithPopup(auth, appleProvider);
+  } catch (err) {
+    error.style.display = "block";
+    error.innerText = err.message || "Apple authentication failed.";
   }
 }
 
@@ -1487,15 +1537,16 @@ function clearAllReminderTimers() {
 
 function renderReminder(entry) {
   const li = document.createElement("li");
-  li.style.display = "flex";
-  li.style.justifyContent = "space-between";
-  li.style.alignItems = "center";
-  li.style.gap = "8px";
+  li.className = "item-row";
 
   const label = document.createElement("span");
+  label.className = "item-text";
   const reminderTextValue = entry.text || "Reminder";
   const reminderMinutes = Number(entry.minutes) || 0;
   const targetAtMs = Number(entry.targetAtMs) || (Date.now() + reminderMinutes * 60000);
+
+  const actions = document.createElement("div");
+  actions.className = "item-actions";
 
   const deleteBtn = document.createElement("button");
   deleteBtn.textContent = "Delete";
@@ -1541,7 +1592,8 @@ function renderReminder(entry) {
     if (entry.id) reminderIntervals.set(entry.id, timer);
   }
 
-  li.append(label, deleteBtn);
+  actions.append(deleteBtn);
+  li.append(label, actions);
   reminders.appendChild(li);
 }
 
@@ -1593,9 +1645,14 @@ async function addReminder() {
 // Tasks
 function renderTask(entry) {
   const li = document.createElement("li");
+  li.className = "item-row";
   const span = document.createElement("span");
+  span.className = "item-text";
   span.textContent = entry.text;
   if (entry.completed) span.classList.add("task-done");
+
+  const actions = document.createElement("div");
+  actions.className = "item-actions";
 
   const toggleBtn = document.createElement("button");
   toggleBtn.textContent = entry.completed ? "✅" : "⬜";
@@ -1656,7 +1713,8 @@ function renderTask(entry) {
     }
   };
 
-  li.append(span, toggleBtn, editBtn, deleteBtn);
+  actions.append(toggleBtn, editBtn, deleteBtn);
+  li.append(span, actions);
   taskList.appendChild(li);
 }
 
@@ -1968,10 +2026,15 @@ newQuote();
 // Gratitude
 function renderGratitude(entry) {
   const row = document.createElement("div");
+  row.className = "item-row";
   const rawTime = entry.time?.toDate?.() ?? new Date(entry.time || Date.now());
 
   const label = document.createElement("span");
+  label.className = "item-text";
   label.textContent = `${rawTime.toLocaleTimeString()} - ${entry.text}`;
+
+  const actions = document.createElement("div");
+  actions.className = "item-actions";
 
   const editBtn = document.createElement("button");
   editBtn.textContent = "✏️";
@@ -2019,7 +2082,8 @@ function renderGratitude(entry) {
     }
   };
 
-  row.append(label, editBtn, deleteBtn);
+  actions.append(editBtn, deleteBtn);
+  row.append(label, actions);
   gratitudeLogs.appendChild(row);
 }
 
@@ -2432,7 +2496,8 @@ Object.assign(window, {
   exportAllData,
   startImportData,
   importDataFileChange,
-  handleGoogleAuth
+  handleGoogleAuth,
+  handleAppleAuth
 });
 
 </script>
