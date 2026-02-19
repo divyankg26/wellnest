@@ -324,6 +324,11 @@ button{
   margin:5px 0;
 }
 
+.water-clear-btn{
+  display:block;
+  margin-top:10px;
+}
+
 ::-webkit-scrollbar{width:6px}
 ::-webkit-scrollbar-thumb{background:var(--primary);border-radius:3px}
 </style>
@@ -422,7 +427,7 @@ button{
 <button onclick="setWaterGoal()">Set Goal</button>
 <input id="waterInput" placeholder="Glasses">
 <button onclick="saveWater()">Track</button>
-<button onclick="clearWaterData()">Clear Intake + Goal</button>
+<button class="water-clear-btn" onclick="clearWaterData()">Clear Intake + Goal</button>
 <p id="waterProgress"></p>
 </div>
 
