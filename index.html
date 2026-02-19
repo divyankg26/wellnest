@@ -826,7 +826,31 @@ async function handleAppleAuth() {
   try {
     await signInWithPopup(auth, appleProvider);
   } catch (err) {
+    const code = err?.code || "";
+    const currentOrigin = window.location.origin || "unknown-origin";
+    const currentHost = window.location.hostname || "unknown-host";
+
     error.style.display = "block";
+    if (code.includes("operation-not-allowed")) {
+      error.innerText = "Apple sign-in is not enabled. In Firebase Console > Authentication > Sign-in method, enable Apple and complete Service ID/Team ID/Key ID/private key setup.";
+      return;
+    }
+
+    if (code.includes("unauthorized-domain")) {
+      error.innerText = `Unauthorized domain for Apple sign-in. Current origin: ${currentOrigin}. Add '${currentHost}' in Firebase Auth > Settings > Authorized domains.`;
+      return;
+    }
+
+    if (code.includes("popup-blocked")) {
+      error.innerText = "Popup blocked by browser. Allow popups for this site and try again.";
+      return;
+    }
+
+    if (code.includes("popup-closed-by-user")) {
+      error.innerText = "Apple sign-in popup was closed before completion.";
+      return;
+    }
+
     error.innerText = err.message || "Apple authentication failed.";
   }
 }
