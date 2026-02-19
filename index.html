@@ -422,6 +422,7 @@ button{
 <button onclick="setWaterGoal()">Set Goal</button>
 <input id="waterInput" placeholder="Glasses">
 <button onclick="saveWater()">Track</button>
+<button onclick="clearWaterData()">Clear Intake + Goal</button>
 <p id="waterProgress"></p>
 </div>
 
@@ -653,8 +654,10 @@ try {
         loadSleepData(user.uid);
         loadGratitude(user.uid);
         startDailyChallengeWatcher();
+        scheduleWaterGoalReset(user.uid);
       } else {
         stopDailyChallengeWatcher();
+        clearWaterGoalResetSchedule();
         signInModal.style.display = "flex";
         dashboard.style.display = "none";
         signOutBtn.style.display = "none";
@@ -815,6 +818,7 @@ let currentChallengeText="";
 let currentChallengeDateKey="";
 let challengeWatcherInterval=null;
 let insightsPersistTimer=null;
+let waterGoalResetTimeoutId = null;
 const userTimeZone = Intl.DateTimeFormat().resolvedOptions().timeZone || "local";
 const FIRESTORE_CRASH_MESSAGE = "Something went wrong. Please try again later.";
 const AI_DAILY_LIMIT = 20;
@@ -970,6 +974,49 @@ function stopDailyChallengeWatcher() {
     clearInterval(challengeWatcherInterval);
     challengeWatcherInterval = null;
   }
+}
+
+function clearWaterGoalResetSchedule() {
+  if (waterGoalResetTimeoutId) {
+    clearTimeout(waterGoalResetTimeoutId);
+    waterGoalResetTimeoutId = null;
+  }
+}
+
+function getMillisecondsUntilNextMidnight() {
+  const now = new Date();
+  const nextMidnight = new Date(now);
+  nextMidnight.setHours(24, 0, 0, 0);
+  return Math.max(1, nextMidnight.getTime() - now.getTime());
+}
+
+function scheduleWaterGoalReset(userId) {
+  clearWaterGoalResetSchedule();
+
+  const runReset = async () => {
+    const activeUser = auth.currentUser;
+    if (!activeUser || activeUser.uid !== userId) {
+      scheduleWaterGoalReset(userId);
+      return;
+    }
+
+    waterGoal = 0;
+    waterGoalInput.value = "";
+    updateWaterProgress();
+
+    try {
+      await setDoc(doc(db, "users", userId, "settings", "water"), {
+        goal: 0,
+        goalDateKey: getTodayKey()
+      }, { merge: true });
+    } catch (err) {
+      notifyFirestoreError(err);
+    }
+
+    scheduleWaterGoalReset(userId);
+  };
+
+  waterGoalResetTimeoutId = setTimeout(runReset, getMillisecondsUntilNextMidnight());
 }
 
 function updateWellnessScore() {
@@ -1843,7 +1890,11 @@ async function saveMood() {
 // Water
 let waterGoal=0;
 function updateWaterProgress() {
-  const sum = waterHistory.reduce((a, b) => a + b, 0);
+  const todayKey = getTodayKey();
+  const sum = waterHistory.reduce((accumulator, value, index) => {
+    const dateKey = dateToKey(waterDates[index]);
+    return dateKey === todayKey ? accumulator + value : accumulator;
+  }, 0);
   const percent = waterGoal > 0 ? Math.round((sum / waterGoal) * 100) : 0;
   waterProgress.innerText = `${sum}/${waterGoal} (${percent}%)`;
   updateInsights();
@@ -1862,7 +1913,10 @@ async function setWaterGoal(){
 
   if (!user) return;
   try {
-    await setDoc(doc(db, "users", user.uid, "settings", "water"), { goal: waterGoal }, { merge: true });
+    await setDoc(doc(db, "users", user.uid, "settings", "water"), {
+      goal: waterGoal,
+      goalDateKey: getTodayKey()
+    }, { merge: true });
   } catch (err) {
     notifyFirestoreError(err);
   }
@@ -1874,7 +1928,24 @@ async function loadWaterData(userId) {
 
   try {
     const waterSettings = await getDoc(doc(db, "users", userId, "settings", "water"));
-    waterGoal = waterSettings.exists() ? (waterSettings.data().goal || 0) : 0;
+    if (waterSettings.exists()) {
+      const settings = waterSettings.data();
+      const savedGoal = Number(settings.goal) || 0;
+      const goalDateKey = settings.goalDateKey || null;
+      const todayKey = getTodayKey();
+
+      if (savedGoal > 0 && goalDateKey && goalDateKey !== todayKey) {
+        waterGoal = 0;
+        await setDoc(doc(db, "users", userId, "settings", "water"), {
+          goal: 0,
+          goalDateKey: todayKey
+        }, { merge: true });
+      } else {
+        waterGoal = savedGoal;
+      }
+    } else {
+      waterGoal = 0;
+    }
     waterGoalInput.value = waterGoal || "";
 
     const snapshot = await getDocs(collection(db, "users", userId, "waterIntake"));
@@ -1920,6 +1991,36 @@ async function saveWater() {
     waterDates.push(new Date());
     updateWaterProgress();
     waterInput.value = "";
+  } catch (err) {
+    notifyFirestoreError(err);
+  }
+}
+
+async function clearWaterData() {
+  const user = auth.currentUser;
+  if (!user) {
+    alert("Please sign in first.");
+    return;
+  }
+
+  const confirmed = confirm("Clear your current water intake and goal?");
+  if (!confirmed) return;
+
+  waterHistory.length = 0;
+  waterDates.length = 0;
+  waterGoal = 0;
+  waterGoalInput.value = "";
+  waterInput.value = "";
+  updateWaterProgress();
+
+  try {
+    const intakeSnapshot = await getDocs(collection(db, "users", user.uid, "waterIntake"));
+    await Promise.all(intakeSnapshot.docs.map((docSnap) => deleteDoc(docSnap.ref)));
+    await setDoc(doc(db, "users", user.uid, "settings", "water"), {
+      goal: 0,
+      goalDateKey: getTodayKey()
+    }, { merge: true });
+    alert("✅ Water intake and goal cleared.");
   } catch (err) {
     notifyFirestoreError(err);
   }
@@ -2458,6 +2559,7 @@ Object.assign(window, {
   saveMood,
   setWaterGoal,
   saveWater,
+  clearWaterData,
   saveSleep,
   timeTraveller,
   newQuote,
