@@ -1112,7 +1112,7 @@ async function clearAllAccountData() {
     return;
   }
 
-  const warningOne = confirm("⚠️ This will permanently delete all your NovaFix data (tasks, mood, water, sleep, gratitude, reminders, AI chats, and insights). Continue?");
+  const warningOne = confirm("⚠️ This will permanently delete your NovaFix app data (tasks, mood, water, sleep, gratitude, reminders, AI chats, and insights). Daily AI limit usage will NOT be reset. Continue?");
   if (!warningOne) return;
 
   const warningTwo = confirm("Final warning: this cannot be undone. Your account will stay signed in, but all app data will be erased. Proceed?");
@@ -1136,7 +1136,6 @@ async function clearAllAccountData() {
     await Promise.all(targetCollections.map((name) => clearUserCollection(user.uid, name)));
     await deleteDoc(doc(db, "users", user.uid, "settings", "water")).catch(() => {});
     await deleteDoc(doc(db, "users", user.uid, "settings", "dailyChallenge")).catch(() => {});
-    await deleteDoc(doc(db, "users", user.uid, "settings", "aiUsage")).catch(() => {});
     await deleteDoc(doc(db, "users", user.uid, "settings", "weeklyTargets")).catch(() => {});
     await deleteDoc(doc(db, "users", user.uid, "settings", "habitQuest")).catch(() => {});
     await deleteDoc(doc(db, "users", user.uid, "insights", "current")).catch(() => {});
@@ -1175,8 +1174,6 @@ async function clearAllAccountData() {
     questXp = 0;
     questShieldAvailable = false;
     waterGoal = 0;
-    aiUsageDateKeyGMT = "";
-    aiUsageCount = 0;
 
     await Promise.all([
       loadDailyChallenge(user.uid),
@@ -1297,6 +1294,7 @@ try {
         waterGoal = 0;
         aiUsageDateKeyGMT = "";
         aiUsageCount = 0;
+        aiUsageStateLoaded = false;
         waterGoalInput.value = "";
       }
     }, 1000); // match your splash transition
@@ -1701,6 +1699,7 @@ const FIRESTORE_CRASH_MESSAGE = "Something went wrong. Please try again later.";
 const AI_DAILY_LIMIT = 20;
 let aiUsageDateKeyGMT = "";
 let aiUsageCount = 0;
+let aiUsageStateLoaded = false;
 let lastFirestoreErrorAlertAt = 0;
 const reminderIntervals = new Map();
 
@@ -2450,6 +2449,7 @@ async function saveAiUsage(userId) {
 }
 
 async function loadAiUsage(userId) {
+  aiUsageStateLoaded = false;
   aiUsageDateKeyGMT = getTodayKeyGMT();
   aiUsageCount = 0;
 
@@ -2468,10 +2468,16 @@ async function loadAiUsage(userId) {
     }
   } catch (err) {
     notifyFirestoreError(err);
+  } finally {
+    aiUsageStateLoaded = true;
   }
 }
 
 async function ensureAiUsageCurrent(userId) {
+  if (!aiUsageStateLoaded) {
+    await loadAiUsage(userId);
+  }
+
   const todayKeyGMT = getTodayKeyGMT();
   if (aiUsageDateKeyGMT !== todayKeyGMT) {
     aiUsageDateKeyGMT = todayKeyGMT;
