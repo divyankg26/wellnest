@@ -1,5 +1,5 @@
 # novafix
-🌿 NovaFix – Wellness app (view only). Code protected.
+NovaFix – Wellness app (view only). Code protected.
 
 Copyright (c) 2026 NovaFix
 
