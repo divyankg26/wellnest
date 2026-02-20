@@ -1181,6 +1181,7 @@ async function clearAllAccountData() {
   if (!warningTwo) return;
 
   try {
+    await syncServerClock(user.uid);
     clearAllReminderTimers();
 
     const aiUsageRef = doc(db, "users", user.uid, "settings", "aiUsage");
@@ -1338,6 +1339,7 @@ try {
         closeAccountPanel();
         updateAccountPanel(user);
         signInModal.style.display = "none";
+        await syncServerClock(user.uid);
         loadDailyChallenge(user.uid);
         loadDailyUsage(user.uid);
         loadMoods(user.uid);
@@ -1836,6 +1838,7 @@ const MAX_GRATITUDE_ENTRIES = 1200;
 const MAX_WATER_ENTRIES = 1500;
 const MAX_SLEEP_ENTRIES = 800;
 const MAX_MOOD_ENTRIES = 1200;
+const SERVER_CLOCK_RESYNC_MS = 5 * 60 * 1000;
 let aiUsageDateKeyGMT = "";
 let aiUsageCount = 0;
 let aiUsageStateLoaded = false;
@@ -1846,6 +1849,8 @@ let sleepDailyUsageCount = 0;
 let reminderDailyUsageCount = 0;
 let gratitudeDailyUsageCount = 0;
 let dailyUsageLoaded = false;
+let serverTimeOffsetMs = 0;
+let serverTimeSyncedAt = 0;
 let lastFirestoreErrorAlertAt = 0;
 const reminderIntervals = new Map();
 
@@ -1861,9 +1866,9 @@ function notifyFirestoreError(err) {
 function dateToKey(dateValue) {
   const date = dateValue instanceof Date ? dateValue : new Date(dateValue);
   if (Number.isNaN(date.getTime())) return null;
-  const year = date.getFullYear();
-  const month = String(date.getMonth() + 1).padStart(2, "0");
-  const day = String(date.getDate()).padStart(2, "0");
+  const year = date.getUTCFullYear();
+  const month = String(date.getUTCMonth() + 1).padStart(2, "0");
+  const day = String(date.getUTCDate()).padStart(2, "0");
   return `${year}-${month}-${day}`;
 }
 
@@ -1907,7 +1912,7 @@ function countTodayRemindersFromDocs(reminderDocs) {
     const data = typeof docSnap.data === "function" ? docSnap.data() : docSnap;
     const dateValue = Number(data.targetAtMs)
       ? new Date(Number(data.targetAtMs))
-      : (toDateSafe(data.createdAt) || new Date());
+      : (toDateSafe(data.createdAt) || getServerNowDate());
     return dateToKey(dateValue) === todayKey ? total + 1 : total;
   }, 0);
 }
@@ -1929,39 +1934,39 @@ function setRemoveButtonsDisabled(containerEl, disabled) {
 function updateMoodLimitUI() {
   const count = getMoodDailyCount();
   const limited = count >= MOOD_DAILY_LIMIT;
-  applyLimitState(moodLimitError, [mood, moodSaveBtn], limited, `Too many mood logs for today. Limit is ${MOOD_DAILY_LIMIT} per day.`);
+  applyLimitState(moodLimitError, [mood, moodSaveBtn], limited, `Too many mood logs for today. Limit is ${MOOD_DAILY_LIMIT} per day. Resets at 00:00 server time.`);
   setRemoveButtonsDisabled(moodLogs, limited);
 }
 
 function updateTaskLimitUI() {
   const count = getTaskDailyCount();
   const limited = count >= TASK_DAILY_LIMIT;
-  applyLimitState(taskLimitError, [task, taskAddBtn], limited, `Too many tasks for today. Limit is ${TASK_DAILY_LIMIT} per day.`);
+  applyLimitState(taskLimitError, [task, taskAddBtn], limited, `Too many tasks for today. Limit is ${TASK_DAILY_LIMIT} per day. Resets at 00:00 server time.`);
   setRemoveButtonsDisabled(taskList, limited);
 }
 
 function updateGratitudeLimitUI() {
   const count = getGratitudeDailyCount();
   const limited = count >= GRATITUDE_DAILY_LIMIT;
-  applyLimitState(gratitudeLimitError, [gratitudeInput, gratitudeSaveBtn], limited, `Too many gratitude logs for today. Limit is ${GRATITUDE_DAILY_LIMIT} per day.`);
+  applyLimitState(gratitudeLimitError, [gratitudeInput, gratitudeSaveBtn], limited, `Too many gratitude logs for today. Limit is ${GRATITUDE_DAILY_LIMIT} per day. Resets at 00:00 server time.`);
   setRemoveButtonsDisabled(gratitudeLogs, limited);
 }
 
 function updateWaterLimitUI() {
   const count = countTodayFromDates(waterDates);
   const limited = count >= WATER_DAILY_LIMIT;
-  applyLimitState(waterLimitError, [waterInput, waterTrackBtn], limited, `Too many water logs for today. Limit is ${WATER_DAILY_LIMIT} per day.`);
+  applyLimitState(waterLimitError, [waterInput, waterTrackBtn], limited, `Too many water logs for today. Limit is ${WATER_DAILY_LIMIT} per day. Resets at 00:00 server time.`);
 }
 
 function updateSleepLimitUI() {
   const count = getSleepDailyCount();
   const limited = count >= SLEEP_DAILY_LIMIT;
-  applyLimitState(sleepLimitError, [sleepInput, sleepSaveBtn], limited, `Too many sleep logs for today. Limit is ${SLEEP_DAILY_LIMIT} per day.`);
+  applyLimitState(sleepLimitError, [sleepInput, sleepSaveBtn], limited, `Too many sleep logs for today. Limit is ${SLEEP_DAILY_LIMIT} per day. Resets at 00:00 server time.`);
 }
 
 function updateAiLimitUI() {
   const limited = aiUsageCount >= AI_DAILY_LIMIT;
-  applyLimitState(aiLimitError, [aiInput, aiTalkBtn], limited, `Daily AI limit reached (${AI_DAILY_LIMIT}/${AI_DAILY_LIMIT}). Resets at 00:00 local time.`);
+  applyLimitState(aiLimitError, [aiInput, aiTalkBtn], limited, `Daily AI limit reached (${AI_DAILY_LIMIT}/${AI_DAILY_LIMIT}). Resets at 00:00 server time.`);
 
   const editButtons = chat?.querySelectorAll?.(".chat-edit-btn") || [];
   editButtons.forEach((button) => {
@@ -1983,7 +1988,7 @@ async function updateReminderLimitUI(userId) {
     const count = Math.max(countTodayRemindersFromDocs(snapshot.docs), reminderDailyUsageCount);
 
     const limited = count >= REMINDER_DAILY_LIMIT;
-    applyLimitState(reminderLimitError, [reminderText, reminderMinutes, reminderSetBtn], limited, `Too many reminders for today. Limit is ${REMINDER_DAILY_LIMIT} per day.`);
+    applyLimitState(reminderLimitError, [reminderText, reminderMinutes, reminderSetBtn], limited, `Too many reminders for today. Limit is ${REMINDER_DAILY_LIMIT} per day. Resets at 00:00 server time.`);
     setRemoveButtonsDisabled(reminders, limited);
   } catch (err) {
     notifyFirestoreError(err);
@@ -2012,14 +2017,14 @@ function calcStreak(dateValues) {
   );
 
   let streak = 0;
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
+  const today = getServerNowDate();
+  today.setUTCHours(0, 0, 0, 0);
 
   while (true) {
     const dayKey = dateToKey(today);
     if (!daySet.has(dayKey)) break;
     streak++;
-    today.setDate(today.getDate() - 1);
+    today.setUTCDate(today.getUTCDate() - 1);
   }
 
   return streak;
@@ -2048,11 +2053,11 @@ function buildLinePath(values, width = 640, height = 74) {
 
 function getLastNDates(n) {
   const days = [];
-  const today = new Date();
+  const today = getServerNowDate();
   for (let index = n - 1; index >= 0; index -= 1) {
     const day = new Date(today);
-    day.setDate(today.getDate() - index);
-    day.setHours(0, 0, 0, 0);
+    day.setUTCDate(today.getUTCDate() - index);
+    day.setUTCHours(0, 0, 0, 0);
     days.push(day);
   }
   return days;
@@ -2175,17 +2180,17 @@ function isInRange(dateValue, startDate, endDate) {
 }
 
 function getWeekRanges() {
-  const now = new Date();
-  const currentEnd = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59, 999);
+  const now = getServerNowDate();
+  const currentEnd = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate(), 23, 59, 59, 999));
   const currentStart = new Date(currentEnd);
-  currentStart.setDate(currentStart.getDate() - 6);
-  currentStart.setHours(0, 0, 0, 0);
+  currentStart.setUTCDate(currentStart.getUTCDate() - 6);
+  currentStart.setUTCHours(0, 0, 0, 0);
 
   const previousEnd = new Date(currentStart);
   previousEnd.setMilliseconds(previousEnd.getMilliseconds() - 1);
   const previousStart = new Date(previousEnd);
-  previousStart.setDate(previousStart.getDate() - 6);
-  previousStart.setHours(0, 0, 0, 0);
+  previousStart.setUTCDate(previousStart.getUTCDate() - 6);
+  previousStart.setUTCHours(0, 0, 0, 0);
 
   return {
     currentStart,
@@ -2654,16 +2659,16 @@ function ensureHabitQuestCurrent() {
 
 function updateBurnoutRadarUI() {
   const crash = getCrashRiskSnapshot();
-  const now = new Date();
-  const hour = now.getHours();
+  const now = getServerNowDate();
+  const hour = now.getUTCHours();
   const dipStart = Math.min(23, hour + 2);
   const dipEnd = Math.min(23, hour + 6);
 
   const rescueLast3Days = rescueEvents.filter((entry) => {
     const time = toDateSafe(entry.time);
     if (!time) return false;
-    const threshold = new Date();
-    threshold.setDate(threshold.getDate() - 3);
+    const threshold = getServerNowDate();
+    threshold.setUTCDate(threshold.getUTCDate() - 3);
     return time >= threshold;
   }).length;
 
@@ -2710,7 +2715,7 @@ async function applyRecoverySchedule() {
     for (let index = 0; index < remindersToSet.length; index += 1) {
       const minutes = remindersToSet[index];
       const text = `Recovery step ${index + 1}: ${burnoutRecoveryPlan[index] || "Take a reset break."}`;
-      const targetAtMs = Date.now() + minutes * 60000;
+      const targetAtMs = getServerNowDate().getTime() + minutes * 60000;
       const ref = await addDoc(collection(db, "users", user.uid, "reminders"), {
         text,
         minutes,
@@ -2747,17 +2752,51 @@ function queueInsightsPersist(payload) {
 }
 
 function getTodayKey() {
-  const formatter = new Intl.DateTimeFormat("en-CA", {
-    timeZone: userTimeZone,
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit"
-  });
-  return formatter.format(new Date());
+  const now = getServerNowDate();
+  const year = now.getUTCFullYear();
+  const month = String(now.getUTCMonth() + 1).padStart(2, "0");
+  const day = String(now.getUTCDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
 }
 
 function getTodayKeyGMT() {
   return getTodayKey();
+}
+
+function getServerNowDate() {
+  return new Date(Date.now() + serverTimeOffsetMs);
+}
+
+async function syncServerClock(userId) {
+  if (!userId) return;
+
+  try {
+    const clockRef = doc(db, "users", userId, "settings", "timeSync");
+    const clientNow = Date.now();
+    await setDoc(clockRef, {
+      clientNow,
+      serverNow: serverTimestamp(),
+      updatedAt: serverTimestamp()
+    }, { merge: true });
+
+    const snapshot = await getDoc(clockRef);
+    if (!snapshot.exists()) return;
+    const data = snapshot.data();
+    const serverNowDate = toDateSafe(data.serverNow);
+    const clientNowAtWrite = Number(data.clientNow) || clientNow;
+    if (!serverNowDate) return;
+
+    serverTimeOffsetMs = serverNowDate.getTime() - clientNowAtWrite;
+    serverTimeSyncedAt = Date.now();
+  } catch (err) {
+    notifyFirestoreError(err);
+  }
+}
+
+async function ensureServerClockCurrent(userId) {
+  if (!serverTimeSyncedAt || (Date.now() - serverTimeSyncedAt) > SERVER_CLOCK_RESYNC_MS) {
+    await syncServerClock(userId);
+  }
 }
 
 async function saveAiUsage(userId) {
@@ -2827,6 +2866,8 @@ async function loadDailyUsage(userId) {
 }
 
 async function ensureDailyUsageCurrent(userId) {
+  await ensureServerClockCurrent(userId);
+
   if (!dailyUsageLoaded) {
     await loadDailyUsage(userId);
   }
@@ -2877,6 +2918,8 @@ async function loadAiUsage(userId) {
 }
 
 async function ensureAiUsageCurrent(userId) {
+  await ensureServerClockCurrent(userId);
+
   if (!aiUsageStateLoaded) {
     await loadAiUsage(userId);
   }
@@ -2917,9 +2960,9 @@ function clearWaterGoalResetSchedule() {
 }
 
 function getMillisecondsUntilNextMidnight() {
-  const now = new Date();
+  const now = getServerNowDate();
   const nextMidnight = new Date(now);
-  nextMidnight.setHours(24, 0, 0, 0);
+  nextMidnight.setUTCHours(24, 0, 0, 0);
   return Math.max(1, nextMidnight.getTime() - now.getTime());
 }
 
@@ -3131,7 +3174,7 @@ async function runCrashRescueFlow(options = {}) {
 
   try {
     const reminderLabel = `Rescue check-in (${snapshot.level})`;
-    const targetAtMs = Date.now() + (20 * 60 * 1000);
+    const targetAtMs = getServerNowDate().getTime() + (20 * 60 * 1000);
     const ref = await addDoc(collection(db, "users", user.uid, "reminders"), {
       text: reminderLabel,
       minutes: 20,
@@ -3145,7 +3188,7 @@ async function runCrashRescueFlow(options = {}) {
       reason: (snapshot.reasons && snapshot.reasons[0]) || "",
       time: serverTimestamp()
     });
-    rescueEvents.push({ id: rescueRef.id, time: new Date(), level: snapshot.level });
+    rescueEvents.push({ id: rescueRef.id, time: getServerNowDate(), level: snapshot.level });
 
     updateCrashPreventionUI();
     updateWeeklyReview();
@@ -3758,7 +3801,7 @@ async function buildSmartAiResponse(input, user) {
   const baseName = getUserName(user);
   learnFromUserInput(input);
   const name = buildUserContextLabel(baseName);
-  const hour = new Date().getHours();
+  const hour = getServerNowDate().getUTCHours();
   const greeting = hour < 12 ? "Good morning" : hour < 18 ? "Good afternoon" : "Good evening";
   const snapshot = getWellnessSnapshot();
   aiSessionState.lastSnapshot = snapshot;
@@ -4036,7 +4079,7 @@ async function editChatMessage(chatId, fieldName, textNode, role) {
     await ensureAiUsageCurrent(user.uid);
     if (aiUsageCount >= AI_DAILY_LIMIT) {
       updateAiLimitUI();
-      alert(`Daily AI limit reached (${AI_DAILY_LIMIT}/${AI_DAILY_LIMIT}). Resets at 00:00 local time.`);
+      alert(`Daily AI limit reached (${AI_DAILY_LIMIT}/${AI_DAILY_LIMIT}). Resets at 00:00 server time.`);
       return;
     }
   }
@@ -4175,7 +4218,7 @@ async function aiChat(){
 
   await ensureAiUsageCurrent(user.uid);
   if (aiUsageCount >= AI_DAILY_LIMIT) {
-    renderChatMessage("ai", "Daily AI limit reached", false, null, null);
+    renderChatMessage("ai", "Daily AI limit reached. Resets at 00:00 server time.", false, null, null);
     updateAiLimitUI();
     aiInput.value = "";
     return;
@@ -4264,7 +4307,7 @@ function renderReminder(entry) {
   label.className = "item-text";
   const reminderTextValue = entry.text || "Reminder";
   const reminderMinutes = Number(entry.minutes) || 0;
-  const targetAtMs = Number(entry.targetAtMs) || (Date.now() + reminderMinutes * 60000);
+  const targetAtMs = Number(entry.targetAtMs) || (getServerNowDate().getTime() + reminderMinutes * 60000);
 
   const actions = document.createElement("div");
   actions.className = "item-actions";
@@ -4297,7 +4340,7 @@ function renderReminder(entry) {
     label.textContent = `• ${reminderTextValue} – ${mins}m ${secs}s`;
   };
 
-  let secondsRemaining = Math.max(0, Math.ceil((targetAtMs - Date.now()) / 1000));
+  let secondsRemaining = Math.max(0, Math.ceil((targetAtMs - getServerNowDate().getTime()) / 1000));
   setLabelText(secondsRemaining);
 
   if (secondsRemaining > 0) {
@@ -4355,7 +4398,7 @@ async function addReminder() {
     const todaysCount = Math.max(countTodayRemindersFromDocs(existing.docs), reminderDailyUsageCount);
 
     if (todaysCount >= REMINDER_DAILY_LIMIT) {
-      alert(`Too many reminders for today. Limit is ${REMINDER_DAILY_LIMIT} per day.`);
+      alert(`Too many reminders for today. Limit is ${REMINDER_DAILY_LIMIT} per day. Resets at 00:00 server time.`);
       await updateReminderLimitUI(user.uid);
       return;
     }
@@ -4364,7 +4407,7 @@ async function addReminder() {
     return;
   }
 
-  const targetAtMs = Date.now() + (m * 60 * 1000);
+  const targetAtMs = getServerNowDate().getTime() + (m * 60 * 1000);
 
   try {
     const ref = await addDoc(collection(db, "users", user.uid, "reminders"), {
@@ -4509,7 +4552,7 @@ async function addTask(){
 
   const todaysCount = getTaskDailyCount();
   if (todaysCount >= TASK_DAILY_LIMIT) {
-    alert(`Too many tasks for today. Limit is ${TASK_DAILY_LIMIT} per day.`);
+    alert(`Too many tasks for today. Limit is ${TASK_DAILY_LIMIT} per day. Resets at 00:00 server time.`);
     updateTaskLimitUI();
     return;
   }
@@ -4520,7 +4563,7 @@ async function addTask(){
       completed: false,
       time: serverTimestamp()
     });
-    const newTask = { id: ref.id, text: t, completed: false, time: new Date() };
+    const newTask = { id: ref.id, text: t, completed: false, time: getServerNowDate() };
     taskEntries.push(newTask);
     taskDailyUsageCount += 1;
     await saveDailyUsage(user.uid);
@@ -4552,7 +4595,7 @@ function renderMoodLog(entry) {
   moodRow.className = "mood-item";
 
   const moodLabel = document.createElement("span");
-  const rawTime = entry.time?.toDate?.() ?? new Date(entry.time || Date.now());
+  const rawTime = entry.time?.toDate?.() ?? new Date(entry.time || getServerNowDate().getTime());
   moodLabel.textContent = `${rawTime.toLocaleTimeString()} - ${entry.mood}`;
 
   const removeBtn = document.createElement("button");
@@ -4596,7 +4639,7 @@ async function loadMoods(userId) {
 
     docs.forEach((entry) => {
       moodHistory.push(entry.mood);
-      const moodTime = entry.time?.toDate?.() ?? new Date(entry.time || Date.now());
+      const moodTime = entry.time?.toDate?.() ?? new Date(entry.time || getServerNowDate().getTime());
       moodDates.push(moodTime);
       renderMoodLog(entry);
     });
@@ -4623,7 +4666,7 @@ async function saveMood() {
   await ensureDailyUsageCurrent(user.uid);
 
   if (getMoodDailyCount() >= MOOD_DAILY_LIMIT) {
-    alert(`Too many mood logs for today. Limit is ${MOOD_DAILY_LIMIT} per day.`);
+    alert(`Too many mood logs for today. Limit is ${MOOD_DAILY_LIMIT} per day. Resets at 00:00 server time.`);
     updateMoodLimitUI();
     return;
   }
@@ -4640,10 +4683,10 @@ async function saveMood() {
     );
 
     moodHistory.push(moodValue);
-    moodDates.push(new Date());
+    moodDates.push(getServerNowDate());
   moodDailyUsageCount += 1;
   await saveDailyUsage(user.uid);
-    renderMoodLog({ id: moodRef.id, mood: moodValue, time: new Date() });
+    renderMoodLog({ id: moodRef.id, mood: moodValue, time: getServerNowDate() });
     updateInsights();
     await trimCollectionToMaxEntries(user.uid, "moods", MAX_MOOD_ENTRIES, (entry) => toDateSafe(entry.time)?.getTime?.() || 0);
     updateMoodLimitUI();
@@ -4725,7 +4768,7 @@ async function loadWaterData(userId) {
     docs.forEach((entry) => {
       if (entry.glasses) {
         waterHistory.push(entry.glasses);
-        const waterTime = entry.time?.toDate?.() ?? new Date(entry.time || Date.now());
+        const waterTime = entry.time?.toDate?.() ?? new Date(entry.time || getServerNowDate().getTime());
         waterDates.push(waterTime);
       }
     });
@@ -4748,7 +4791,7 @@ async function saveWater() {
   if (!v) return; // ignore empty or 0 input
 
   if (countTodayFromDates(waterDates) >= WATER_DAILY_LIMIT) {
-    alert(`Too many water logs for today. Limit is ${WATER_DAILY_LIMIT} per day.`);
+    alert(`Too many water logs for today. Limit is ${WATER_DAILY_LIMIT} per day. Resets at 00:00 server time.`);
     updateWaterLimitUI();
     return;
   }
@@ -4760,7 +4803,7 @@ async function saveWater() {
       glasses: v,
       time: serverTimestamp()
     });
-    waterDates.push(new Date());
+    waterDates.push(getServerNowDate());
     updateWaterProgress();
     waterInput.value = "";
     await trimCollectionToMaxEntries(user.uid, "waterIntake", MAX_WATER_ENTRIES, (entry) => toDateSafe(entry.time)?.getTime?.() || 0);
@@ -4820,7 +4863,7 @@ async function loadSleepData(userId) {
     docs.forEach((entry) => {
       if (entry.hours) {
         sleepHistory.push(entry.hours);
-        const sleepTime = entry.time?.toDate?.() ?? new Date(entry.time || Date.now());
+        const sleepTime = entry.time?.toDate?.() ?? new Date(entry.time || getServerNowDate().getTime());
         sleepDates.push(sleepTime);
       }
     });
@@ -4849,13 +4892,13 @@ async function saveSleep(){
   await ensureDailyUsageCurrent(user.uid);
 
   if (getSleepDailyCount() >= SLEEP_DAILY_LIMIT) {
-    alert(`Too many sleep logs for today. Limit is ${SLEEP_DAILY_LIMIT} per day.`);
+    alert(`Too many sleep logs for today. Limit is ${SLEEP_DAILY_LIMIT} per day. Resets at 00:00 server time.`);
     updateSleepLimitUI();
     return;
   }
 
   sleepHistory.push(hours);
-  sleepDates.push(new Date());
+  sleepDates.push(getServerNowDate());
   sleepResult.innerText = `${hours} hrs 💤`;
   updateInsights();
 
@@ -4943,7 +4986,7 @@ newQuote();
 function renderGratitude(entry) {
   const row = document.createElement("div");
   row.className = "item-row";
-  const rawTime = entry.time?.toDate?.() ?? new Date(entry.time || Date.now());
+  const rawTime = entry.time?.toDate?.() ?? new Date(entry.time || getServerNowDate().getTime());
 
   const label = document.createElement("span");
   label.className = "item-text";
@@ -5044,7 +5087,7 @@ async function saveGratitude(){
 
   const todaysCount = getGratitudeDailyCount();
   if (todaysCount >= GRATITUDE_DAILY_LIMIT) {
-    alert(`Too many gratitude logs for today. Limit is ${GRATITUDE_DAILY_LIMIT} per day.`);
+    alert(`Too many gratitude logs for today. Limit is ${GRATITUDE_DAILY_LIMIT} per day. Resets at 00:00 server time.`);
     updateGratitudeLimitUI();
     return;
   }
@@ -5054,7 +5097,7 @@ async function saveGratitude(){
       text: t,
       time: serverTimestamp()
     });
-    const entry = { id: ref.id, text: t, time: new Date() };
+    const entry = { id: ref.id, text: t, time: getServerNowDate() };
     gratitudeEntries.push(entry);
     gratitudeDailyUsageCount += 1;
     await saveDailyUsage(user.uid);
@@ -5102,7 +5145,7 @@ async function exportAllData() {
     ]);
 
     const toExport = {
-      exportedAt: new Date().toISOString(),
+      exportedAt: getServerNowDate().toISOString(),
       user: {
         uid: user.uid,
         email: user.email || null,
@@ -5127,7 +5170,7 @@ async function exportAllData() {
     const url = URL.createObjectURL(blob);
     const link = document.createElement("a");
     link.href = url;
-    link.download = `novafix-export-${new Date().toISOString().slice(0, 10)}.json`;
+    link.download = `novafix-export-${getServerNowDate().toISOString().slice(0, 10)}.json`;
     document.body.appendChild(link);
     link.click();
     link.remove();
@@ -5138,7 +5181,7 @@ async function exportAllData() {
 }
 
 function normalizeExportTime(value) {
-  if (!value) return new Date();
+  if (!value) return getServerNowDate();
 
   if (typeof value === "string" || typeof value === "number") {
     const asDate = new Date(value);
@@ -5156,7 +5199,7 @@ function normalizeExportTime(value) {
 
   const fallback = new Date(value);
   if (!Number.isNaN(fallback.getTime())) return fallback;
-  return new Date();
+  return getServerNowDate();
 }
 
 function startImportData() {
