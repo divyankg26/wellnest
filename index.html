@@ -25,8 +25,8 @@ html,body{
 
 body{
   background:linear-gradient(120deg,var(--waveA),var(--waveB));
-  background-size:200% 200%;
-  animation:waveMove 16s ease-in-out infinite;
+  background-size:260% 260%;
+  animation:waveMove 36s ease-in-out infinite alternate;
   overflow-x:hidden;
 }
 
@@ -723,6 +723,7 @@ textarea:disabled{
     <input id="passwordInput" type="password" placeholder="Enter password">
     <button id="actionButton" onclick="handleAuth()">Sign In</button>
     <button id="resetPasswordButton" class="google-btn" onclick="sendResetPasswordEmail()">Reset Password</button>
+    <button id="resendVerificationButton" class="google-btn" onclick="resendVerificationEmailFromModal()">Resend Verification Email</button>
     <button id="googleAuthButton" class="google-btn" onclick="handleGoogleAuth()">Sign In with Google</button>
     <p onclick="toggleAuth()"><span id="toggleText">Don't have an account? Sign Up</span></p>
     <p id="signInError" style="color:red; display:none;">Error message here!</p>
@@ -983,7 +984,6 @@ textarea:disabled{
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
 import { initializeFirestore, persistentLocalCache, getFirestore, collection, addDoc, getDocs, serverTimestamp, deleteDoc, doc, updateDoc, setDoc, getDoc } 
 from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
-import { getAnalytics } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-analytics.js";
 import { 
   getAuth,
   createUserWithEmailAndPassword, 
@@ -1011,10 +1011,6 @@ const firebaseConfig = {
 
 // 🔥 Initialize Firebase
 const app = initializeApp(firebaseConfig);
-let analytics = null;
-try {
-  analytics = getAnalytics(app);
-} catch (_) {}
 const auth = getAuth(app);
 let db;
 try {
@@ -1034,6 +1030,7 @@ const emailInput = document.getElementById("emailInput");
 const passwordInput = document.getElementById("passwordInput");
 const usernameInput = document.getElementById("usernameInput");
 const googleAuthButton = document.getElementById("googleAuthButton");
+const resendVerificationButton = document.getElementById("resendVerificationButton");
 const splash = document.getElementById("splash");
 const signInModal = document.getElementById("signInModal");
 const dashboard = document.querySelector(".dashboard");
@@ -1493,8 +1490,8 @@ let w = 1;
 let currentWaveA = waves[0][0];
 let currentWaveB = waves[0][1];
 let waveAnimationId = null;
-const WAVE_HOLD_MS = 9000;
-const WAVE_TRANSITION_MS = 8000;
+const WAVE_HOLD_MS = 14000;
+const WAVE_TRANSITION_MS = 18000;
 
 function hexToRgb(hex) {
   const normalized = hex.replace("#", "");
@@ -1537,9 +1534,7 @@ function animateWaveTo(targetA, targetB, durationMs) {
   const tick = (now) => {
     const elapsed = now - startTime;
     const progress = Math.min(1, elapsed / durationMs);
-    const eased = progress < 0.5
-      ? 2 * progress * progress
-      : 1 - Math.pow(-2 * progress + 2, 2) / 2;
+    const eased = progress * progress * progress * (progress * (progress * 6 - 15) + 10);
 
     const nextA = rgbToHex({
       r: lerp(startA.r, endA.r, eased),
@@ -1579,6 +1574,119 @@ setTimeout(rotateWave, WAVE_HOLD_MS);
 
 // ---------- SIGN-IN / SIGN-UP ----------
 let authMode="signin";
+let verificationCooldownTimer = null;
+let verificationCooldownRemaining = 0;
+const VERIFICATION_AUTO_RESEND_WINDOW_MS = 10 * 60 * 1000;
+
+function getVerificationSentStorageKey(email) {
+  return `novafix_verification_sent_${String(email || "").toLowerCase()}`;
+}
+
+function getVerificationLastSentMs(email) {
+  try {
+    const raw = localStorage.getItem(getVerificationSentStorageKey(email));
+    const value = Number(raw);
+    return Number.isFinite(value) ? value : 0;
+  } catch (_) {
+    return 0;
+  }
+}
+
+function markVerificationSentNow(email) {
+  try {
+    localStorage.setItem(getVerificationSentStorageKey(email), String(Date.now()));
+  } catch (_) {}
+}
+
+function canAutoResendVerification(email) {
+  const lastSentMs = getVerificationLastSentMs(email);
+  if (!lastSentMs) return true;
+  return (Date.now() - lastSentMs) >= VERIFICATION_AUTO_RESEND_WINDOW_MS;
+}
+
+function setResendVerificationButtonState() {
+  if (!resendVerificationButton) return;
+  if (verificationCooldownRemaining > 0) {
+    resendVerificationButton.disabled = true;
+    resendVerificationButton.innerText = `Resend Verification (${verificationCooldownRemaining}s)`;
+    return;
+  }
+  resendVerificationButton.disabled = false;
+  resendVerificationButton.innerText = "Resend Verification Email";
+}
+
+function startVerificationCooldown(seconds = 110) {
+  verificationCooldownRemaining = Math.max(0, Number(seconds) || 0);
+  setResendVerificationButtonState();
+  if (verificationCooldownTimer) clearInterval(verificationCooldownTimer);
+  if (verificationCooldownRemaining <= 0) return;
+
+  verificationCooldownTimer = setInterval(() => {
+    verificationCooldownRemaining = Math.max(0, verificationCooldownRemaining - 1);
+    setResendVerificationButtonState();
+    if (verificationCooldownRemaining <= 0) {
+      clearInterval(verificationCooldownTimer);
+      verificationCooldownTimer = null;
+    }
+  }, 1000);
+}
+
+function getAuthActionUrl() {
+  return window.location.protocol === "file:"
+    ? "https://novaafix-86912.firebaseapp.com"
+    : window.location.origin;
+}
+
+async function sendVerificationEmailReliable(user) {
+  const actionCodeSettings = {
+    url: getAuthActionUrl(),
+    handleCodeInApp: false
+  };
+
+  try {
+    await sendEmailVerification(user, actionCodeSettings);
+    return { ok: true, mode: "custom" };
+  } catch (err) {
+    const code = String(err?.code || "");
+    const shouldFallback = code.includes("unauthorized-continue-uri") || code.includes("invalid-continue-uri") || code.includes("unauthorized-domain");
+    if (!shouldFallback) {
+      return { ok: false, error: err };
+    }
+
+    try {
+      await sendEmailVerification(user);
+      return { ok: true, mode: "default" };
+    } catch (fallbackErr) {
+      return { ok: false, error: fallbackErr };
+    }
+  }
+}
+
+async function sendPasswordResetReliable(email) {
+  const actionCodeSettings = {
+    url: getAuthActionUrl(),
+    handleCodeInApp: false
+  };
+
+  try {
+    await sendPasswordResetEmail(auth, email, actionCodeSettings);
+    return { ok: true, mode: "custom" };
+  } catch (err) {
+    const code = String(err?.code || "");
+    const shouldFallback = code.includes("unauthorized-continue-uri") || code.includes("invalid-continue-uri") || code.includes("unauthorized-domain");
+    if (!shouldFallback) {
+      return { ok: false, error: err };
+    }
+
+    try {
+      await sendPasswordResetEmail(auth, email);
+      return { ok: true, mode: "default" };
+    } catch (fallbackErr) {
+      return { ok: false, error: fallbackErr };
+    }
+  }
+}
+
 function toggleAuth(){
   authMode=authMode==="signin"?"signup":"signin";
   const title=document.getElementById("modalTitle");
@@ -1599,11 +1707,58 @@ function toggleAuth(){
     toggleText.innerText="Don't have an account? Sign Up";
     usernameInput.style.display = "none";
   }
+  setResendVerificationButtonState();
+}
+
+async function resendVerificationEmailFromModal() {
+  const email = emailInput.value.trim().toLowerCase();
+  const password = passwordInput.value.trim();
+  const error = document.getElementById("signInError");
+  error.style.display = "none";
+
+  if (verificationCooldownRemaining > 0) return;
+
+  if (!email || !password) {
+    error.style.display = "block";
+    error.style.color = "#ff6b6b";
+    error.innerText = "Enter email and password to resend verification.";
+    return;
+  }
+
+  try {
+    const credential = await signInWithEmailAndPassword(auth, email, password);
+    await credential.user.reload();
+
+    if (credential.user.emailVerified) {
+      error.style.display = "block";
+      error.style.color = "#7CFFB2";
+      error.innerText = "This email is already verified. You can sign in now.";
+      await signOut(auth);
+      return;
+    }
+
+    const verifyResult = await sendVerificationEmailReliable(credential.user);
+    await signOut(auth);
+
+    if (!verifyResult.ok) {
+      throw verifyResult.error;
+    }
+
+    markVerificationSentNow(email);
+    startVerificationCooldown(110);
+    error.style.display = "block";
+    error.style.color = "#7CFFB2";
+    error.innerText = "Verification email resent. It may take up to 10 minutes; check Inbox/Spam/Promotions.";
+  } catch (err) {
+    error.style.display = "block";
+    error.style.color = "#ff6b6b";
+    error.innerText = err?.message || "Could not resend verification email.";
+  }
 }
 
 async function handleAuth() {
   const username = usernameInput.value.trim();
-  const email = emailInput.value.trim();
+  const email = emailInput.value.trim().toLowerCase();
   const password = passwordInput.value.trim();
   const error = document.getElementById("signInError");
 
@@ -1623,14 +1778,7 @@ async function handleAuth() {
     if (authMode === "signup") {
       const userCredential = await createUserWithEmailAndPassword(auth, email, password);
       await updateProfile(userCredential.user, { displayName: username });
-      try {
-        await sendEmailVerification(userCredential.user, {
-          url: window.location.protocol === "file:" ? "https://novaafix-86912.firebaseapp.com" : window.location.origin,
-          handleCodeInApp: false
-        });
-      } catch (verifyErr) {
-        console.error("Signup verification send error:", verifyErr?.code || verifyErr);
-      }
+      const verifyResult = await sendVerificationEmailReliable(userCredential.user);
 
       await signOut(auth);
       authMode = "signin";
@@ -1644,25 +1792,33 @@ async function handleAuth() {
       usernameInput.style.display = "none";
 
       error.style.display = "block";
-      error.style.color = "#7CFFB2";
-      error.innerText = "Account created. Verify your email first, then sign in.";
+      error.style.color = verifyResult.ok ? "#7CFFB2" : "#ff6b6b";
+      error.innerText = verifyResult.ok
+        ? "Account created. Verification email sent. Check Inbox/Spam/Promotions, then sign in."
+        : `Account created, but verification email failed: ${verifyResult.error?.message || "Please use Forgot Password flow or try again later."}`;
+      if (verifyResult.ok) {
+        markVerificationSentNow(email);
+        startVerificationCooldown(110);
+      }
       return;
     } else {
       const credential = await signInWithEmailAndPassword(auth, email, password);
       await credential.user.reload();
       if (!credential.user.emailVerified) {
-        try {
-          await sendEmailVerification(credential.user, {
-            url: window.location.protocol === "file:" ? "https://novaafix-86912.firebaseapp.com" : window.location.origin,
-            handleCodeInApp: false
-          });
-        } catch (verifyErr) {
-          console.error("Signin verification resend error:", verifyErr?.code || verifyErr);
+        let verifyResult = { ok: true, skipped: true };
+        if (canAutoResendVerification(email)) {
+          verifyResult = await sendVerificationEmailReliable(credential.user);
+          if (verifyResult.ok) markVerificationSentNow(email);
         }
         await signOut(auth);
         error.style.display = "block";
         error.style.color = "#ff6b6b";
-        error.innerText = "Please verify your email before signing in. We sent a verification email.";
+        error.innerText = verifyResult.ok
+          ? (verifyResult.skipped
+            ? "Please verify your email before signing in. A verification email was recently sent — check Inbox/Spam/Promotions."
+            : "Please verify your email before signing in. Verification email sent.")
+          : `Please verify your email before signing in. Could not send verification email: ${verifyResult.error?.message || "try again later."}`;
+        if (verifyResult.ok) startVerificationCooldown(110);
         return;
       }
     }
@@ -1702,7 +1858,7 @@ async function handleGoogleAuth() {
 }
 
 async function sendResetPasswordEmail() {
-  const email = emailInput.value.trim();
+  const email = emailInput.value.trim().toLowerCase();
   const error = document.getElementById("signInError");
   error.style.display = "none";
 
@@ -1722,12 +1878,10 @@ async function sendResetPasswordEmail() {
       return;
     }
 
-    const actionCodeSettings = {
-      url: window.location.protocol === "file:" ? "https://novaafix-86912.firebaseapp.com" : window.location.origin,
-      handleCodeInApp: false
-    };
-
-    await sendPasswordResetEmail(auth, email, actionCodeSettings);
+    const resetResult = await sendPasswordResetReliable(email);
+    if (!resetResult.ok) {
+      throw resetResult.error;
+    }
     error.style.display = "block";
     error.style.color = "#7CFFB2";
     error.innerText = "Password reset email sent. Check Inbox/Spam/Promotions.";
@@ -1746,7 +1900,7 @@ async function sendAccountResetPasswordEmail() {
     return;
   }
 
-  const email = (user.email || accountEmail?.innerText || "").trim();
+  const email = (user.email || accountEmail?.innerText || "").trim().toLowerCase();
   if (!email || email === "-") {
     alert("No email found for this account.");
     return;
@@ -1759,12 +1913,10 @@ async function sendAccountResetPasswordEmail() {
       return;
     }
 
-    const actionCodeSettings = {
-      url: window.location.protocol === "file:" ? "https://novaafix-86912.firebaseapp.com" : window.location.origin,
-      handleCodeInApp: false
-    };
-
-    await sendPasswordResetEmail(auth, email, actionCodeSettings);
+    const resetResult = await sendPasswordResetReliable(email);
+    if (!resetResult.ok) {
+      throw resetResult.error;
+    }
     alert(`✅ Password reset email sent to ${email}. Check Inbox/Spam/Promotions.`);
   } catch (err) {
     console.error("Account reset password error:", err?.code || err);
@@ -1851,6 +2003,7 @@ let gratitudeDailyUsageCount = 0;
 let dailyUsageLoaded = false;
 let serverTimeOffsetMs = 0;
 let serverTimeSyncedAt = 0;
+let limitCountdownInterval = null;
 let lastFirestoreErrorAlertAt = 0;
 const reminderIntervals = new Map();
 
@@ -1872,9 +2025,50 @@ function dateToKey(dateValue) {
   return `${year}-${month}-${day}`;
 }
 
+function formatCountdownClock(milliseconds) {
+  const safeMs = Math.max(0, Number(milliseconds) || 0);
+  const totalSeconds = Math.floor(safeMs / 1000);
+  const hours = Math.floor(totalSeconds / 3600);
+  const minutes = Math.floor((totalSeconds % 3600) / 60);
+  const seconds = totalSeconds % 60;
+  return `${String(hours).padStart(2, "0")}:${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}`;
+}
+
+function updateLimitCountdownNote(noteEl) {
+  if (!noteEl) return;
+  const baseMessage = noteEl.dataset.baseMessage || "";
+  if (!baseMessage) return;
+  const remaining = getMillisecondsUntilNextMidnight();
+  noteEl.innerText = `${baseMessage}. Resets in ${formatCountdownClock(remaining)} (server time).`;
+}
+
+function ensureLimitCountdownTicker() {
+  if (limitCountdownInterval) return;
+  limitCountdownInterval = setInterval(() => {
+    const notes = document.querySelectorAll(".limit-note.show[data-live-countdown='1']");
+    notes.forEach((noteEl) => updateLimitCountdownNote(noteEl));
+  }, 1000);
+}
+
 function applyLimitState(noteEl, controls, limited, message) {
   if (noteEl) {
-    noteEl.innerText = limited ? message : "";
+    if (limited) {
+      const needsLiveCountdown = /Resets at 00:00 server time\.?$/i.test(message || "");
+      if (needsLiveCountdown) {
+        noteEl.dataset.liveCountdown = "1";
+        noteEl.dataset.baseMessage = String(message || "").replace(/\s*Resets at 00:00 server time\.?$/i, "").trim();
+        updateLimitCountdownNote(noteEl);
+        ensureLimitCountdownTicker();
+      } else {
+        noteEl.innerText = message || "";
+        delete noteEl.dataset.liveCountdown;
+        delete noteEl.dataset.baseMessage;
+      }
+    } else {
+      noteEl.innerText = "";
+      delete noteEl.dataset.liveCountdown;
+      delete noteEl.dataset.baseMessage;
+    }
     noteEl.classList.toggle("show", !!limited);
   }
   (controls || []).forEach((control) => {
@@ -5493,6 +5687,7 @@ async function completeChallenge() {
 
 Object.assign(window, {
   handleAuth,
+  resendVerificationEmailFromModal,
   toggleAuth,
   toggleAccountPanel,
   closeAccountPanel,
