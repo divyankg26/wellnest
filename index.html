@@ -680,6 +680,103 @@ textarea:disabled{
 
 .weekly-target-btn{margin-top:10px}
 
+.challenge-streak{
+  width:100%;
+  margin-top:10px;
+}
+
+.challenge-streak-labels,
+.challenge-streak-circles{
+  display:grid;
+  grid-template-columns:repeat(7,minmax(0,1fr));
+  gap:6px;
+  width:100%;
+}
+
+.challenge-streak-labels{
+  margin-bottom:6px;
+}
+
+.challenge-streak-day{
+  text-align:center;
+  font-size:11px;
+  opacity:.92;
+}
+
+.challenge-streak-circle{
+  width:26px;
+  height:26px;
+  border-radius:999px;
+  border:2px solid rgba(255,255,255,.45);
+  background:rgba(255,255,255,.06);
+  position:relative;
+  overflow:hidden;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  margin:0 auto;
+  font-size:0;
+  line-height:1;
+  transition:transform .2s ease, background .2s ease, border-color .2s ease;
+}
+
+.challenge-streak-circle::before{
+  content:"";
+  position:absolute;
+  left:0;
+  right:0;
+  top:100%;
+  bottom:0;
+  background:linear-gradient(180deg,#ffb347 0%, #ff8c00 55%, #ff6a00 100%);
+}
+
+.challenge-streak-circle.filled{
+  background:rgba(255,140,0,.18);
+  border-color:#ff9f43;
+}
+
+.challenge-streak-circle.filled::before{
+  top:0;
+}
+
+.challenge-streak-fire{
+  position:relative;
+  z-index:1;
+  font-size:15px;
+  line-height:1;
+  filter:drop-shadow(0 0 6px rgba(255,120,0,.5));
+}
+
+.challenge-streak-circle.fire-fill{
+  animation:challengeCirclePop .65s ease-out;
+}
+
+@keyframes challengeFireRise{
+  0%{top:100%}
+  55%{top:18%}
+  100%{top:0}
+}
+
+@keyframes challengeCirclePop{
+  0%{transform:scale(.86)}
+  60%{transform:scale(1.08)}
+  100%{transform:scale(1)}
+}
+
+.challenge-streak-circle.fire-fill::before{
+  animation:challengeFireRise .75s ease-out forwards;
+}
+
+.challenge-streak-circle.fire-fill .challenge-streak-fire{
+  animation:challengeFireEmoji .75s ease-out;
+}
+
+@keyframes challengeFireEmoji{
+  0%{opacity:0;transform:translateY(8px) scale(.75)}
+  60%{opacity:1;transform:translateY(-1px) scale(1.08)}
+  100%{opacity:1;transform:translateY(0) scale(1)}
+}
+
 .quest-top{
   display:flex;
   justify-content:center;
@@ -688,9 +785,52 @@ textarea:disabled{
   flex-wrap:wrap;
 }
 
+.quest-card{
+  position:relative;
+  overflow:hidden;
+}
+
 .quest-stat{
   font-size:13px;
   opacity:.95;
+}
+
+#questStreak{
+  padding:6px 10px;
+  border-radius:999px;
+  background:rgba(255,255,255,.14);
+  border:1px solid rgba(255,255,255,.25);
+  box-shadow:0 0 0 rgba(255,140,0,0);
+  transition:transform .2s ease, box-shadow .25s ease, background .25s ease;
+}
+
+#questStreak.streak-pop{
+  transform:scale(1.08);
+  background:rgba(255,140,0,.22);
+  box-shadow:0 0 18px rgba(255,140,0,.55);
+}
+
+.quest-streak-fx{
+  position:absolute;
+  inset:0;
+  pointer-events:none;
+  overflow:hidden;
+}
+
+.quest-flame{
+  position:absolute;
+  left:50%;
+  top:36%;
+  font-size:18px;
+  opacity:0;
+  transform:translate(-50%, -50%) scale(.5);
+  animation:flameBurst .9s ease-out forwards;
+}
+
+@keyframes flameBurst{
+  0%{opacity:0;transform:translate(-50%, -50%) scale(.5)}
+  20%{opacity:1}
+  100%{opacity:0;transform:translate(calc(-50% + var(--tx)), calc(-50% + var(--ty))) scale(1.1)}
 }
 
 .quest-progress{
@@ -699,13 +839,17 @@ textarea:disabled{
   border-radius:10px;
   background:rgba(255,255,255,.2);
   overflow:hidden;
-  margin-top:8px;
+  margin:14px 0 12px;
 }
 
 .quest-progress-fill{
   height:100%;
   width:0%;
   background:linear-gradient(135deg,var(--primary),var(--accent));
+}
+
+#questShield{
+  margin:6px 0 12px;
 }
 
 .quest-list{margin:10px 0 0;padding:0;list-style:none}
@@ -968,11 +1112,15 @@ textarea:disabled{
 </div>
 
 <!-- Adaptive Habit Quest -->
-<div class="card">
+<div class="card quest-card" id="questCard">
 <h2>🎮 Adaptive Habit Quest</h2>
 <div class="quest-top">
   <div id="questXp" class="quest-stat">XP 0/100</div>
-  <div id="questStreak" class="quest-stat">Streak 0 🔥</div>
+</div>
+<div id="questStreak" class="quest-stat">Streak 0 🔥</div>
+<div id="questWeekStreak" class="challenge-streak">
+  <div id="questWeekStreakLabels" class="challenge-streak-labels"></div>
+  <div id="questWeekStreakCircles" class="challenge-streak-circles"></div>
 </div>
 <div class="quest-progress"><div id="questProgressFill" class="quest-progress-fill"></div></div>
 <p id="questShield" class="burnout-sub">Streak shield: Inactive</p>
@@ -1093,6 +1241,8 @@ const weeklyActions = document.getElementById("weeklyActions");
 const weeklyTargetsDisplay = document.getElementById("weeklyTargetsDisplay");
 const questXpEl = document.getElementById("questXp");
 const questStreakEl = document.getElementById("questStreak");
+const questWeekStreakLabels = document.getElementById("questWeekStreakLabels");
+const questWeekStreakCircles = document.getElementById("questWeekStreakCircles");
 const questProgressFill = document.getElementById("questProgressFill");
 const questShieldEl = document.getElementById("questShield");
 const questListEl = document.getElementById("questList");
@@ -1410,12 +1560,14 @@ try {
         loadGratitude(user.uid);
         startDailyChallengeWatcher();
         scheduleDailyChallengeReset(user.uid);
+        scheduleDailyQuestReset(user.uid);
         startWeeklyGraphResetCountdown();
         scheduleWeeklyGraphReset(user.uid);
         scheduleWaterGoalReset(user.uid);
       } else {
         stopDailyChallengeWatcher();
         clearDailyChallengeResetSchedule();
+        clearDailyQuestResetSchedule();
         clearWeeklyGraphResetSchedule();
         stopWeeklyGraphResetCountdown();
         clearWaterGoalResetSchedule();
@@ -1449,6 +1601,9 @@ try {
         questShieldAvailable = false;
         questStreakCount = 0;
         questLastStreakDateKey = "";
+        questWeekStartKey = "";
+        weeklyQuestUsedIds = [];
+        questCompletedDateKeys = [];
         weeklyTargets = { waterGoal: 0, sleepTarget: 8, taskTarget: 5 };
         if (weeklyRange) weeklyRange.innerText = "Last 7 days review";
         if (weeklyTargetsDisplay) weeklyTargetsDisplay.innerText = "Targets: Water -, Sleep -, Tasks -";
@@ -2044,6 +2199,10 @@ let questXp = 0;
 let questShieldAvailable = false;
 let questStreakCount = 0;
 let questLastStreakDateKey = "";
+let questWeekStartKey = "";
+let weeklyQuestUsedIds = [];
+let questCompletedDateKeys = [];
+let dailyQuestResetTimeoutId = null;
 let weeklyTargets = {
   waterGoal: 0,
   sleepTarget: 8,
@@ -2058,6 +2217,8 @@ const TASK_DAILY_LIMIT = 50;
 const GRATITUDE_DAILY_LIMIT = 30;
 const WATER_DAILY_LIMIT = 40;
 const WATER_MAX_GLASSES_PER_ENTRY = 10;
+const REMINDER_MAX_MINUTES = 1440;
+const REMINDER_MAX_TEXT_LENGTH = 140;
 const SLEEP_DAILY_LIMIT = 8;
 const MAX_REMINDER_ENTRIES = 500;
 const MAX_TASK_ENTRIES = 1500;
@@ -2186,9 +2347,9 @@ function countTodayRemindersFromDocs(reminderDocs) {
   const todayKey = getTodayKey();
   return (reminderDocs || []).reduce((total, docSnap) => {
     const data = typeof docSnap.data === "function" ? docSnap.data() : docSnap;
-    const dateValue = Number(data.targetAtMs)
-      ? new Date(Number(data.targetAtMs))
-      : (toDateSafe(data.createdAt) || getServerNowDate());
+    const dateValue = toDateSafe(data.createdAt)
+      || (Number(data.targetAtMs) ? new Date(Number(data.targetAtMs)) : null)
+      || getServerNowDate();
     return dateToKey(dateValue) === todayKey ? total + 1 : total;
   }, 0);
 }
@@ -2787,35 +2948,128 @@ async function setNextWeekTargets() {
   }
 }
 
-function getQuestCandidatePool() {
-  const snapshot = getWellnessSnapshot();
-  const currentRisk = getCrashRiskSnapshot();
-  const candidates = [];
+const QUEST_LIBRARY = [
+  { id: "sleep60_1", text: "Log at least 6 hours of sleep today.", type: "recovery", requirement: { kind: "sleep", min: 6 } },
+  { id: "sleep60_2", text: "Hit a 6-hour sleep minimum tonight.", type: "recovery", requirement: { kind: "sleep", min: 6 } },
+  { id: "sleep65_1", text: "Log at least 6.5 hours of sleep today.", type: "recovery", requirement: { kind: "sleep", min: 6.5 } },
+  { id: "sleep65_2", text: "Get to 6.5+ hours of rest today.", type: "recovery", requirement: { kind: "sleep", min: 6.5 } },
+  { id: "sleep70_1", text: "Log at least 7 hours of sleep today.", type: "recovery", requirement: { kind: "sleep", min: 7 } },
+  { id: "sleep70_2", text: "Reach a full 7 hours of sleep today.", type: "recovery", requirement: { kind: "sleep", min: 7 } },
+  { id: "sleep75_1", text: "Log at least 7.5 hours of sleep today.", type: "recovery", requirement: { kind: "sleep", min: 7.5 } },
+  { id: "sleep75_2", text: "Aim for 7.5+ sleep hours today.", type: "recovery", requirement: { kind: "sleep", min: 7.5 } },
+  { id: "sleep80_1", text: "Log at least 8 hours of sleep today.", type: "recovery", requirement: { kind: "sleep", min: 8 } },
+  { id: "sleep80_2", text: "Sleep 8 hours today for full recovery.", type: "recovery", requirement: { kind: "sleep", min: 8 } },
+  { id: "sleep85_1", text: "Log at least 8.5 hours of sleep today.", type: "recovery", requirement: { kind: "sleep", min: 8.5 } },
+  { id: "sleep85_2", text: "Stretch sleep to 8.5 hours today.", type: "recovery", requirement: { kind: "sleep", min: 8.5 } },
+  { id: "sleep90_1", text: "Log at least 9 hours of sleep today.", type: "recovery", requirement: { kind: "sleep", min: 9 } },
+  { id: "sleep90_2", text: "Reach 9 sleep hours today.", type: "recovery", requirement: { kind: "sleep", min: 9 } },
 
-  if (snapshot.sleepToday < 7) candidates.push({ id: "sleep", text: "Log at least 7 hours of sleep today.", type: "recovery", requirement: { kind: "sleep", min: 7 } });
-  if (snapshot.waterToday < snapshot.todayGoal) candidates.push({ id: "water", text: `Reach water target (${snapshot.todayGoal} glasses) today.`, type: "hydration", requirement: { kind: "water", min: snapshot.todayGoal } });
-  if (!snapshot.moodToday) candidates.push({ id: "mood", text: "Log your mood at least once today.", type: "mind", requirement: { kind: "mood" } });
-  if (!snapshot.gratitudeToday) candidates.push({ id: "gratitude", text: "Write one gratitude note today.", type: "mind", requirement: { kind: "gratitude", min: 1 } });
-  if (snapshot.pendingTasks > 0) candidates.push({ id: "task", text: "Complete at least 1 task today.", type: "focus", requirement: { kind: "tasksCompleted", min: 1 } });
-  if (currentRisk.risk >= 60) candidates.push({ id: "rescue", text: "Run one mood crash rescue today.", type: "resilience", requirement: { kind: "rescue", min: 1 } });
+  { id: "water5_1", text: "Log at least 5 glasses of water today.", type: "hydration", requirement: { kind: "water", min: 5 } },
+  { id: "water5_2", text: "Drink and log 5 glasses today.", type: "hydration", requirement: { kind: "water", min: 5 } },
+  { id: "water6_1", text: "Log at least 6 glasses of water today.", type: "hydration", requirement: { kind: "water", min: 6 } },
+  { id: "water6_2", text: "Hit 6 glasses of water today.", type: "hydration", requirement: { kind: "water", min: 6 } },
+  { id: "water7_1", text: "Log at least 7 glasses of water today.", type: "hydration", requirement: { kind: "water", min: 7 } },
+  { id: "water7_2", text: "Reach 7 glasses of water today.", type: "hydration", requirement: { kind: "water", min: 7 } },
+  { id: "water8_1", text: "Log at least 8 glasses of water today.", type: "hydration", requirement: { kind: "water", min: 8 } },
+  { id: "water8_2", text: "Get to 8 glasses of water today.", type: "hydration", requirement: { kind: "water", min: 8 } },
+  { id: "water9_1", text: "Log at least 9 glasses of water today.", type: "hydration", requirement: { kind: "water", min: 9 } },
+  { id: "water9_2", text: "Push hydration to 9 glasses today.", type: "hydration", requirement: { kind: "water", min: 9 } },
+  { id: "water10_1", text: "Log at least 10 glasses of water today.", type: "hydration", requirement: { kind: "water", min: 10 } },
+  { id: "water10_2", text: "Complete a 10-glass hydration day.", type: "hydration", requirement: { kind: "water", min: 10 } },
 
-  candidates.push(
-    { id: "challenge", text: "Complete today’s daily challenge.", type: "consistency", requirement: { kind: "challenge" } },
-    { id: "water8", text: "Log at least 8 glasses of water today.", type: "hydration", requirement: { kind: "water", min: 8 } },
-    { id: "tasks2", text: "Complete at least 2 tasks today.", type: "focus", requirement: { kind: "tasksCompleted", min: 2 } }
-  );
+  { id: "mood_1", text: "Log your mood at least once today.", type: "mind", requirement: { kind: "mood" } },
+  { id: "mood_2", text: "Check in with your mood today.", type: "mind", requirement: { kind: "mood" } },
+  { id: "mood_3", text: "Record one mood entry for today.", type: "mind", requirement: { kind: "mood" } },
+  { id: "mood_4", text: "Track your emotional state once today.", type: "mind", requirement: { kind: "mood" } },
 
-  const uniqueById = new Map();
-  candidates.forEach((item) => {
-    if (!uniqueById.has(item.id)) uniqueById.set(item.id, item);
-  });
-  return [...uniqueById.values()];
+  { id: "grat1_1", text: "Write one gratitude note today.", type: "mind", requirement: { kind: "gratitude", min: 1 } },
+  { id: "grat1_2", text: "Capture 1 gratitude win today.", type: "mind", requirement: { kind: "gratitude", min: 1 } },
+  { id: "grat2_1", text: "Write two gratitude notes today.", type: "mind", requirement: { kind: "gratitude", min: 2 } },
+  { id: "grat2_2", text: "List 2 things you are thankful for today.", type: "mind", requirement: { kind: "gratitude", min: 2 } },
+  { id: "grat3_1", text: "Write three gratitude notes today.", type: "mind", requirement: { kind: "gratitude", min: 3 } },
+  { id: "grat3_2", text: "Log 3 gratitude moments today.", type: "mind", requirement: { kind: "gratitude", min: 3 } },
+  { id: "grat4_1", text: "Write four gratitude notes today.", type: "mind", requirement: { kind: "gratitude", min: 4 } },
+  { id: "grat4_2", text: "Complete 4 gratitude entries today.", type: "mind", requirement: { kind: "gratitude", min: 4 } },
+  { id: "grat5_1", text: "Write five gratitude notes today.", type: "mind", requirement: { kind: "gratitude", min: 5 } },
+  { id: "grat5_2", text: "Log 5 gratitude points today.", type: "mind", requirement: { kind: "gratitude", min: 5 } },
+  { id: "grat6_1", text: "Write six gratitude notes today.", type: "mind", requirement: { kind: "gratitude", min: 6 } },
+  { id: "grat6_2", text: "Hit 6 gratitude entries today.", type: "mind", requirement: { kind: "gratitude", min: 6 } },
+
+  { id: "task1_1", text: "Complete at least 1 task today.", type: "focus", requirement: { kind: "tasksCompleted", min: 1 } },
+  { id: "task1_2", text: "Close out 1 task today.", type: "focus", requirement: { kind: "tasksCompleted", min: 1 } },
+  { id: "task2_1", text: "Complete at least 2 tasks today.", type: "focus", requirement: { kind: "tasksCompleted", min: 2 } },
+  { id: "task2_2", text: "Finish 2 tasks on your list today.", type: "focus", requirement: { kind: "tasksCompleted", min: 2 } },
+  { id: "task3_1", text: "Complete at least 3 tasks today.", type: "focus", requirement: { kind: "tasksCompleted", min: 3 } },
+  { id: "task3_2", text: "Push through and complete 3 tasks today.", type: "focus", requirement: { kind: "tasksCompleted", min: 3 } },
+  { id: "task4_1", text: "Complete at least 4 tasks today.", type: "focus", requirement: { kind: "tasksCompleted", min: 4 } },
+  { id: "task4_2", text: "Mark 4 tasks as done today.", type: "focus", requirement: { kind: "tasksCompleted", min: 4 } },
+  { id: "task5_1", text: "Complete at least 5 tasks today.", type: "focus", requirement: { kind: "tasksCompleted", min: 5 } },
+  { id: "task5_2", text: "Finish 5 tasks for a strong focus day.", type: "focus", requirement: { kind: "tasksCompleted", min: 5 } },
+  { id: "task6_1", text: "Complete at least 6 tasks today.", type: "focus", requirement: { kind: "tasksCompleted", min: 6 } },
+  { id: "task6_2", text: "Hit 6 completed tasks today.", type: "focus", requirement: { kind: "tasksCompleted", min: 6 } },
+  { id: "task7_1", text: "Complete at least 7 tasks today.", type: "focus", requirement: { kind: "tasksCompleted", min: 7 } },
+  { id: "task7_2", text: "Close 7 tasks today for momentum.", type: "focus", requirement: { kind: "tasksCompleted", min: 7 } },
+  { id: "task8_1", text: "Complete at least 8 tasks today.", type: "focus", requirement: { kind: "tasksCompleted", min: 8 } },
+  { id: "task8_2", text: "Reach 8 finished tasks today.", type: "focus", requirement: { kind: "tasksCompleted", min: 8 } },
+  { id: "task9_1", text: "Complete at least 9 tasks today.", type: "focus", requirement: { kind: "tasksCompleted", min: 9 } },
+  { id: "task9_2", text: "Drive to 9 completed tasks today.", type: "focus", requirement: { kind: "tasksCompleted", min: 9 } },
+  { id: "task10_1", text: "Complete at least 10 tasks today.", type: "focus", requirement: { kind: "tasksCompleted", min: 10 } },
+  { id: "task10_2", text: "Crush 10 tasks today.", type: "focus", requirement: { kind: "tasksCompleted", min: 10 } },
+
+  { id: "challenge_1", text: "Complete today’s daily challenge.", type: "consistency", requirement: { kind: "challenge" } },
+  { id: "challenge_2", text: "Finish the daily challenge today.", type: "consistency", requirement: { kind: "challenge" } },
+  { id: "challenge_3", text: "Secure your day by completing today’s challenge.", type: "consistency", requirement: { kind: "challenge" } },
+  { id: "challenge_4", text: "Check off the daily challenge before day-end.", type: "consistency", requirement: { kind: "challenge" } },
+
+  { id: "rescue1_1", text: "Run one mood crash rescue today.", type: "resilience", requirement: { kind: "rescue", min: 1 } },
+  { id: "rescue1_2", text: "Complete 1 rescue action today.", type: "resilience", requirement: { kind: "rescue", min: 1 } },
+  { id: "rescue2_1", text: "Run two mood crash rescues today.", type: "resilience", requirement: { kind: "rescue", min: 2 } },
+  { id: "rescue2_2", text: "Do 2 rescue interventions today.", type: "resilience", requirement: { kind: "rescue", min: 2 } },
+  { id: "rescue3_1", text: "Run three mood crash rescues today.", type: "resilience", requirement: { kind: "rescue", min: 3 } },
+  { id: "rescue3_2", text: "Complete 3 rescue attempts today.", type: "resilience", requirement: { kind: "rescue", min: 3 } }
+];
+
+function getQuestWeekStartKeySunday(dateValue = getServerNowDate()) {
+  const date = toDateSafe(dateValue) || getServerNowDate();
+  const sunday = new Date(date);
+  sunday.setUTCHours(0, 0, 0, 0);
+  sunday.setUTCDate(sunday.getUTCDate() - sunday.getUTCDay());
+  return dateToKey(sunday) || getTodayKey();
 }
 
-function generateAdaptiveQuests() {
-  const pool = getQuestCandidatePool();
-  const selected = pool.slice(0, 4).map((item, index) => ({
-    id: `${item.id}-${index + 1}`,
+function getQuestWeekDatesSundayStart() {
+  const startKey = getQuestWeekStartKeySunday();
+  const startDate = dateKeyToDate(startKey) || getServerNowDate();
+  startDate.setUTCHours(0, 0, 0, 0);
+  return Array.from({ length: 7 }, (_, index) => {
+    const date = new Date(startDate);
+    date.setUTCDate(startDate.getUTCDate() + index);
+    return date;
+  });
+}
+
+function pickRandomQuests(pool, count) {
+  const shuffled = [...pool];
+  for (let index = shuffled.length - 1; index > 0; index -= 1) {
+    const randomIndex = Math.floor(Math.random() * (index + 1));
+    [shuffled[index], shuffled[randomIndex]] = [shuffled[randomIndex], shuffled[index]];
+  }
+  return shuffled.slice(0, count);
+}
+
+function generateAdaptiveQuests(todayKey = getTodayKey()) {
+  const weekStartKey = getQuestWeekStartKeySunday();
+  if (questWeekStartKey !== weekStartKey) {
+    questWeekStartKey = weekStartKey;
+    weeklyQuestUsedIds = [];
+    questCompletedDateKeys = [];
+    questStreakCount = 0;
+    questLastStreakDateKey = "";
+  }
+
+  const selected = pickRandomQuests(QUEST_LIBRARY, 4).map((item, index) => ({
+    id: `${item.id}-${todayKey}-${index + 1}`,
+    baseId: item.id,
     text: item.text,
     type: item.type,
     requirement: item.requirement || null,
@@ -2826,11 +3080,48 @@ function generateAdaptiveQuests() {
   selected.forEach((quest) => habitQuests.push(quest));
 }
 
-function renderHabitQuestUI() {
+function renderQuestWeekStreak(animatedDateKey = "") {
+  if (!questWeekStreakLabels || !questWeekStreakCircles) return;
+
+  const weekDates = getQuestWeekDatesSundayStart();
+  const labels = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+  const completedSet = new Set((questCompletedDateKeys || []).filter(Boolean));
+
+  questWeekStreakLabels.innerHTML = "";
+  questWeekStreakCircles.innerHTML = "";
+
+  weekDates.forEach((date, index) => {
+    const key = dateToKey(date);
+
+    const label = document.createElement("span");
+    label.className = "challenge-streak-day";
+    label.innerText = labels[index] || "";
+    questWeekStreakLabels.appendChild(label);
+
+    const circle = document.createElement("span");
+    circle.className = "challenge-streak-circle";
+    if (completedSet.has(key)) {
+      circle.classList.add("filled");
+      const fire = document.createElement("span");
+      fire.className = "challenge-streak-fire";
+      fire.innerText = "🔥";
+      circle.appendChild(fire);
+      if (animatedDateKey && key === animatedDateKey) {
+        circle.classList.add("fire-fill");
+      }
+    }
+    questWeekStreakCircles.appendChild(circle);
+  });
+}
+
+function renderHabitQuestUI(animatedDateKey = "") {
   if (questXpEl) questXpEl.innerText = `XP ${questXp}/100`;
-  if (questStreakEl) questStreakEl.innerText = `Streak ${questStreakCount} 🔥`;
-  if (questProgressFill) questProgressFill.style.width = `${Math.max(0, Math.min(100, questXp))}%`;
+  const allDoneToday = habitQuests.length > 0 && habitQuests.every((entry) => !!entry.completed);
+  if (questStreakEl) questStreakEl.innerText = allDoneToday ? `Streak ${questStreakCount} 🔥` : "Complete all 4 quests to lock today’s streak";
+  const progressPercent = allDoneToday ? 100 : Math.max(0, Math.min(100, questXp));
+  if (questProgressFill) questProgressFill.style.width = `${progressPercent}%`;
   if (questShieldEl) questShieldEl.innerText = `Streak shield: ${questShieldAvailable ? "Active" : "Inactive"}`;
+  renderQuestWeekStreak(animatedDateKey);
 
   if (!questListEl) return;
   questListEl.innerHTML = "";
@@ -2863,10 +3154,13 @@ async function saveHabitQuestState(userId) {
   try {
     await setDoc(doc(db, "users", userId, "settings", "habitQuest"), {
       dateKey: questDateKey,
+      weekStartKey: questWeekStartKey,
       xp: questXp,
       shield: questShieldAvailable,
       streakCount: questStreakCount,
       lastStreakDateKey: questLastStreakDateKey,
+      weeklyQuestUsedIds,
+      completedDateKeys: questCompletedDateKeys,
       quests: habitQuests,
       updatedAt: serverTimestamp()
     }, { merge: true });
@@ -2884,6 +3178,16 @@ function dayDiffFromKeys(fromKey, toKey) {
 }
 
 function normalizeQuestStreakForToday(todayKey = getTodayKey()) {
+  const currentWeekStart = getQuestWeekStartKeySunday();
+  if (questWeekStartKey !== currentWeekStart) {
+    questWeekStartKey = currentWeekStart;
+    questStreakCount = 0;
+    questLastStreakDateKey = "";
+    weeklyQuestUsedIds = [];
+    questCompletedDateKeys = [];
+    return;
+  }
+
   if (!questLastStreakDateKey) {
     questStreakCount = 0;
     return;
@@ -2893,7 +3197,7 @@ function normalizeQuestStreakForToday(todayKey = getTodayKey()) {
 }
 
 function awardQuestStreakForToday(todayKey = getTodayKey()) {
-  if (questLastStreakDateKey === todayKey) return;
+  if (questLastStreakDateKey === todayKey) return false;
   const diff = dayDiffFromKeys(questLastStreakDateKey, todayKey);
   if (diff === 1) {
     questStreakCount += 1;
@@ -2901,10 +3205,21 @@ function awardQuestStreakForToday(todayKey = getTodayKey()) {
     questStreakCount = 1;
   }
   questLastStreakDateKey = todayKey;
+  return true;
+}
+
+function triggerQuestStreakCelebration() {
+  if (questStreakEl) {
+    questStreakEl.classList.remove("streak-pop");
+    void questStreakEl.offsetWidth;
+    questStreakEl.classList.add("streak-pop");
+    setTimeout(() => questStreakEl.classList.remove("streak-pop"), 700);
+  }
 }
 
 async function loadHabitQuest(userId) {
   questDateKey = getTodayKey();
+  const currentWeekStart = getQuestWeekStartKeySunday();
 
   try {
     const snap = await getDoc(doc(db, "users", userId, "settings", "habitQuest"));
@@ -2914,30 +3229,35 @@ async function loadHabitQuest(userId) {
       questShieldAvailable = !!data.shield;
       questStreakCount = Math.max(0, Number(data.streakCount) || 0);
       questLastStreakDateKey = String(data.lastStreakDateKey || "");
+      questWeekStartKey = String(data.weekStartKey || "");
+      weeklyQuestUsedIds = Array.isArray(data.weeklyQuestUsedIds) ? data.weeklyQuestUsedIds.map((id) => String(id || "")).filter(Boolean) : [];
+      questCompletedDateKeys = Array.isArray(data.completedDateKeys) ? data.completedDateKeys.map((key) => String(key || "")).filter(Boolean) : [];
+
+      if (questWeekStartKey !== currentWeekStart) {
+        questWeekStartKey = currentWeekStart;
+        weeklyQuestUsedIds = [];
+        questCompletedDateKeys = [];
+        questStreakCount = 0;
+        questLastStreakDateKey = "";
+      }
+
       normalizeQuestStreakForToday(questDateKey);
 
       if (data.dateKey === questDateKey && Array.isArray(data.quests) && data.quests.length >= 4) {
         habitQuests.length = 0;
         data.quests.forEach((quest) => {
+          const baseId = String(quest.baseId || String(quest.id || "").split("-")[0] || "");
           habitQuests.push({
             id: String(quest.id || ""),
+            baseId,
             text: String(quest.text || "Daily quest"),
             type: String(quest.type || "general"),
             requirement: quest.requirement || null,
             completed: !!quest.completed
           });
         });
-
-        const hasUnverifiableQuest = habitQuests.some((quest) => {
-          const baseId = String(quest.id || "").split("-")[0];
-          return baseId === "walk" || baseId === "plan";
-        });
-        if (hasUnverifiableQuest) {
-          generateAdaptiveQuests();
-          await saveHabitQuestState(userId);
-        }
       } else {
-        generateAdaptiveQuests();
+        generateAdaptiveQuests(questDateKey);
         await saveHabitQuestState(userId);
       }
     } else {
@@ -2945,7 +3265,10 @@ async function loadHabitQuest(userId) {
       questShieldAvailable = false;
       questStreakCount = 0;
       questLastStreakDateKey = "";
-      generateAdaptiveQuests();
+      questWeekStartKey = currentWeekStart;
+      weeklyQuestUsedIds = [];
+      questCompletedDateKeys = [];
+      generateAdaptiveQuests(questDateKey);
       await saveHabitQuestState(userId);
     }
   } catch (err) {
@@ -3069,23 +3392,40 @@ async function completeHabitQuest(index) {
 
   const allDone = habitQuests.length > 0 && habitQuests.every((entry) => entry.completed);
   if (allDone) {
+    const todayKey = getTodayKey();
+    if (!questCompletedDateKeys.includes(todayKey)) {
+      questCompletedDateKeys.push(todayKey);
+    }
     questXp += 20;
     questShieldAvailable = true;
-    awardQuestStreakForToday(getTodayKey());
+    const streakAdvanced = awardQuestStreakForToday(todayKey);
+    if (streakAdvanced) triggerQuestStreakCelebration();
+    while (questCompletedDateKeys.length > 7) questCompletedDateKeys.shift();
+    renderHabitQuestUI(todayKey);
+  } else {
+    renderHabitQuestUI();
   }
 
   while (questXp >= 100) questXp -= 100;
 
-  renderHabitQuestUI();
   await saveHabitQuestState(user.uid);
   updateInsights();
 }
 
 function ensureHabitQuestCurrent() {
   const todayKey = getTodayKey();
+  const currentWeekStart = getQuestWeekStartKeySunday();
+  if (questWeekStartKey !== currentWeekStart) {
+    questWeekStartKey = currentWeekStart;
+    questStreakCount = 0;
+    questLastStreakDateKey = "";
+    weeklyQuestUsedIds = [];
+    questCompletedDateKeys = [];
+  }
+
   if (!questDateKey) {
     questDateKey = todayKey;
-    if (!habitQuests.length) generateAdaptiveQuests();
+    if (!habitQuests.length) generateAdaptiveQuests(todayKey);
     renderHabitQuestUI();
     return;
   }
@@ -3093,7 +3433,7 @@ function ensureHabitQuestCurrent() {
   if (questDateKey !== todayKey) {
     questDateKey = todayKey;
     normalizeQuestStreakForToday(todayKey);
-    generateAdaptiveQuests();
+    generateAdaptiveQuests(todayKey);
     const user = auth.currentUser;
     if (user) saveHabitQuestState(user.uid);
   }
@@ -3429,6 +3769,30 @@ function stopDailyChallengeWatcher() {
     clearInterval(challengeWatcherInterval);
     challengeWatcherInterval = null;
   }
+}
+
+function clearDailyQuestResetSchedule() {
+  if (dailyQuestResetTimeoutId) {
+    clearTimeout(dailyQuestResetTimeoutId);
+    dailyQuestResetTimeoutId = null;
+  }
+}
+
+function scheduleDailyQuestReset(userId) {
+  clearDailyQuestResetSchedule();
+
+  const runReset = async () => {
+    const activeUser = auth.currentUser;
+    if (!activeUser || activeUser.uid !== userId) {
+      scheduleDailyQuestReset(userId);
+      return;
+    }
+
+    await loadHabitQuest(userId);
+    scheduleDailyQuestReset(userId);
+  };
+
+  dailyQuestResetTimeoutId = setTimeout(runReset, getMillisecondsUntilNextMidnight());
 }
 
 function clearDailyChallengeResetSchedule() {
@@ -4967,12 +5331,16 @@ function renderReminder(entry) {
     if (user && entry.id) {
       try {
         await deleteDoc(doc(db, "users", user.uid, "reminders", entry.id));
-        updateReminderLimitUI(user.uid);
+        await updateReminderLimitUI(user.uid);
       } catch (err) {
         notifyFirestoreError(err);
       }
     }
     li.remove();
+
+    if (user) {
+      await updateReminderLimitUI(user.uid);
+    }
   };
 
   const setLabelText = (secondsLeft) => {
@@ -5035,6 +5403,16 @@ async function addReminder() {
   const t = reminderText.value.trim();
   const m = +reminderMinutes.value;
   if (!t || m <= 0) return;
+
+  if (t.length > REMINDER_MAX_TEXT_LENGTH) {
+    alert(`Reminder text is too long. Maximum is ${REMINDER_MAX_TEXT_LENGTH} characters.`);
+    return;
+  }
+
+  if (m > REMINDER_MAX_MINUTES) {
+    alert(`Reminder time is too high. Maximum is ${REMINDER_MAX_MINUTES} minutes.`);
+    return;
+  }
 
   await ensureDailyUsageCurrent(user.uid);
 
