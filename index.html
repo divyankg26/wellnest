@@ -463,6 +463,16 @@ textarea:disabled{
   opacity:.95;
 }
 
+.insight-reset-note{
+  display:block;
+  text-align:center;
+  margin:0 0 6px;
+  font-size:12px;
+  opacity:.95;
+  color:#ff6b6b;
+  font-weight:700;
+}
+
 .insight-graph-scroll{
   width:100%;
   margin-top:8px;
@@ -993,6 +1003,7 @@ textarea:disabled{
   <button id="insightNextBtn" onclick="nextInsightMetric()">Next</button>
 </div>
 <small id="insightMetricLabel" class="insight-metric-label">0%</small>
+<small id="insightWeeklyResetCountdown" class="insight-reset-note"></small>
 <div id="insightGraphScroll" class="insight-graph-scroll">
   <div id="insightGraphTrack" class="insight-graph-track">
     <svg id="insightLineGraph" class="insight-line-graph" viewBox="0 0 640 74" preserveAspectRatio="xMinYMid meet">
@@ -1144,6 +1155,7 @@ const insightTaskTopLabel = document.getElementById("insightTaskTopLabel");
 const insightTaskTopBar = document.getElementById("insightTaskTopBar");
 const insightMetricTitle = document.getElementById("insightMetricTitle");
 const insightMetricLabel = document.getElementById("insightMetricLabel");
+const insightWeeklyResetCountdown = document.getElementById("insightWeeklyResetCountdown");
 const insightLineGraph = document.getElementById("insightLineGraph");
 const insightAxisLayer = document.getElementById("insightAxisLayer");
 const insightBarLayer = document.getElementById("insightBarLayer");
@@ -1398,10 +1410,14 @@ try {
         loadGratitude(user.uid);
         startDailyChallengeWatcher();
         scheduleDailyChallengeReset(user.uid);
+        startWeeklyGraphResetCountdown();
+        scheduleWeeklyGraphReset(user.uid);
         scheduleWaterGoalReset(user.uid);
       } else {
         stopDailyChallengeWatcher();
         clearDailyChallengeResetSchedule();
+        clearWeeklyGraphResetSchedule();
+        stopWeeklyGraphResetCountdown();
         clearWaterGoalResetSchedule();
         closeAccountPanel();
         updateAccountPanel(null);
@@ -2018,6 +2034,8 @@ let currentChallengeText="";
 let currentChallengeDateKey="";
 let challengeWatcherInterval=null;
 let dailyChallengeResetTimeoutId = null;
+let weeklyGraphResetTimeoutId = null;
+let weeklyGraphCountdownIntervalId = null;
 let insightsPersistTimer=null;
 let waterGoalResetTimeoutId = null;
 let insightMetricIndex = 0;
@@ -3449,6 +3467,109 @@ function getMillisecondsUntilNextMidnight() {
   const nextMidnight = new Date(now);
   nextMidnight.setUTCHours(24, 0, 0, 0);
   return Math.max(1, nextMidnight.getTime() - now.getTime());
+}
+
+function getMillisecondsUntilNextSundayMidnight() {
+  const now = getServerNowDate();
+  const nextSunday = new Date(now);
+  nextSunday.setUTCHours(0, 0, 0, 0);
+  const day = nextSunday.getUTCDay();
+  const daysUntilSunday = day === 0 ? 7 : (7 - day);
+  nextSunday.setUTCDate(nextSunday.getUTCDate() + daysUntilSunday);
+  return Math.max(1, nextSunday.getTime() - now.getTime());
+}
+
+function formatWeeklyResetCountdown(milliseconds) {
+  const safeMs = Math.max(0, Number(milliseconds) || 0);
+  const totalSeconds = Math.floor(safeMs / 1000);
+  const days = Math.floor(totalSeconds / 86400);
+  const hours = Math.floor((totalSeconds % 86400) / 3600);
+  const minutes = Math.floor((totalSeconds % 3600) / 60);
+  const seconds = totalSeconds % 60;
+  if (safeMs >= 86400000) {
+    return `${days}d ${String(hours).padStart(2, "0")}h ${String(minutes).padStart(2, "0")}m`;
+  }
+  const totalHours = Math.floor(totalSeconds / 3600);
+  return `${String(totalHours).padStart(2, "0")}h ${String(minutes).padStart(2, "0")}m ${String(seconds).padStart(2, "0")}s`;
+}
+
+function updateWeeklyGraphResetCountdownNote() {
+  if (!insightWeeklyResetCountdown) return;
+  const remaining = getMillisecondsUntilNextSundayMidnight();
+  insightWeeklyResetCountdown.innerText = `Weekly bar graph reset in ${formatWeeklyResetCountdown(remaining)} (server time)`;
+}
+
+function startWeeklyGraphResetCountdown() {
+  stopWeeklyGraphResetCountdown();
+  updateWeeklyGraphResetCountdownNote();
+  weeklyGraphCountdownIntervalId = setInterval(updateWeeklyGraphResetCountdownNote, 1000);
+}
+
+function stopWeeklyGraphResetCountdown() {
+  if (weeklyGraphCountdownIntervalId) {
+    clearInterval(weeklyGraphCountdownIntervalId);
+    weeklyGraphCountdownIntervalId = null;
+  }
+  if (insightWeeklyResetCountdown) {
+    insightWeeklyResetCountdown.innerText = "";
+  }
+}
+
+function clearWeeklyGraphResetSchedule() {
+  if (weeklyGraphResetTimeoutId) {
+    clearTimeout(weeklyGraphResetTimeoutId);
+    weeklyGraphResetTimeoutId = null;
+  }
+}
+
+async function resetWeeklyBarGraphData(userId) {
+  const weekRange = getCurrentWeekRangeKeys();
+  const labels = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
+  const zeroBarGraphs = {
+    weekStartKey: weekRange.weekStartKey,
+    weekEndKey: weekRange.weekEndKey,
+    labels,
+    tasks: { values: [0, 0, 0, 0, 0, 0, 0], maxValue: 100 },
+    sleep: { values: [0, 0, 0, 0, 0, 0, 0], maxValue: 12 },
+    water: { values: [0, 0, 0, 0, 0, 0, 0], maxValue: 8 },
+    mood: { values: [0, 0, 0, 0, 0, 0, 0], maxValue: 3 }
+  };
+
+  persistedBarGraphs = zeroBarGraphs;
+
+  try {
+    await Promise.all([
+      setDoc(doc(db, "users", userId, "insights", "barGraphs"), {
+        ...zeroBarGraphs,
+        updatedAt: serverTimestamp()
+      }, { merge: true }),
+      setDoc(doc(db, "users", userId, "insights", "current"), {
+        barGraphs: zeroBarGraphs,
+        updatedAt: serverTimestamp()
+      }, { merge: true })
+    ]);
+  } catch (err) {
+    notifyFirestoreError(err);
+  }
+
+  updateInsights();
+}
+
+function scheduleWeeklyGraphReset(userId) {
+  clearWeeklyGraphResetSchedule();
+
+  const runReset = async () => {
+    const activeUser = auth.currentUser;
+    if (!activeUser || activeUser.uid !== userId) {
+      scheduleWeeklyGraphReset(userId);
+      return;
+    }
+
+    await resetWeeklyBarGraphData(userId);
+    scheduleWeeklyGraphReset(userId);
+  };
+
+  weeklyGraphResetTimeoutId = setTimeout(runReset, getMillisecondsUntilNextSundayMidnight());
 }
 
 async function resetWaterDayData(userId, dateKey = getTodayKey()) {
