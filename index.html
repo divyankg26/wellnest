@@ -472,6 +472,12 @@ textarea:disabled{
   background:rgba(0,0,0,.14);
 }
 
+.insight-graph-track{
+  display:block;
+  width:max-content;
+  min-width:100%;
+}
+
 .insight-graph-scroll::-webkit-scrollbar{
   height:6px;
 }
@@ -487,14 +493,34 @@ textarea:disabled{
   height:180px;
   margin-top:0;
   display:block;
+  flex:none;
 }
 
-.insight-line-path{
-  fill:none;
-  stroke:url(#insightGraphGradient);
-  stroke-width:3;
-  stroke-linecap:round;
-  stroke-linejoin:round;
+.insight-column{
+  fill:url(#insightGraphGradient);
+  opacity:1;
+}
+
+.insight-axis-line{
+  stroke:rgba(255,255,255,.95);
+  stroke-width:1.5;
+}
+
+.insight-tick-label{
+  font-size:10px;
+  fill:rgba(255,255,255,.92);
+}
+
+.insight-bar-label{
+  font-size:10px;
+  fill:rgba(255,255,255,.95);
+  text-anchor:middle;
+}
+
+.insight-bar-value{
+  font-size:10px;
+  fill:rgba(255,255,255,.95);
+  text-anchor:middle;
 }
 
 .export-actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:8px}
@@ -835,7 +861,7 @@ textarea:disabled{
 <input id="waterInput" placeholder="Glasses">
 <button id="waterTrackBtn" onclick="saveWater()">Track</button>
 <p id="waterLimitError" class="limit-note"></p>
-<button class="water-clear-btn" onclick="clearWaterData()">Clear Intake + Goal</button>
+<button id="waterClearBtn" class="water-clear-btn" onclick="clearWaterData()">Clear Intake + Goal</button>
 <p id="waterProgress"></p>
 </div>
 
@@ -882,7 +908,7 @@ textarea:disabled{
 <div class="card">
 <h2>🏆 Daily Challenge</h2>
 <p id="dailyChallenge"></p>
-<button onclick="completeChallenge()">Complete</button>
+<button id="challengeCompleteBtn" onclick="completeChallenge()">Complete</button>
 <p id="challengeResult"></p>
 </div>
 
@@ -936,6 +962,7 @@ textarea:disabled{
 <h2>🎮 Adaptive Habit Quest</h2>
 <div class="quest-top">
   <div id="questXp" class="quest-stat">XP 0/100</div>
+  <div id="questStreak" class="quest-stat">Streak 0 🔥</div>
 </div>
 <div class="quest-progress"><div id="questProgressFill" class="quest-progress-fill"></div></div>
 <p id="questShield" class="burnout-sub">Streak shield: Inactive</p>
@@ -966,16 +993,20 @@ textarea:disabled{
   <button id="insightNextBtn" onclick="nextInsightMetric()">Next</button>
 </div>
 <small id="insightMetricLabel" class="insight-metric-label">0%</small>
-<div class="insight-graph-scroll">
-  <svg id="insightLineGraph" class="insight-line-graph" viewBox="0 0 640 74" preserveAspectRatio="xMinYMid meet">
-    <defs>
-      <linearGradient id="insightGraphGradient" x1="0" y1="0" x2="1" y2="0">
-        <stop offset="0%" stop-color="var(--primary)" />
-        <stop offset="100%" stop-color="var(--accent)" />
-      </linearGradient>
-    </defs>
-    <path id="insightLinePath" class="insight-line-path" d="" />
-  </svg>
+<div id="insightGraphScroll" class="insight-graph-scroll">
+  <div id="insightGraphTrack" class="insight-graph-track">
+    <svg id="insightLineGraph" class="insight-line-graph" viewBox="0 0 640 74" preserveAspectRatio="xMinYMid meet">
+      <defs>
+        <linearGradient id="insightGraphGradient" x1="0" y1="0" x2="1" y2="0">
+          <stop offset="0%" stop-color="var(--primary)" />
+          <stop offset="100%" stop-color="var(--accent)" />
+        </linearGradient>
+      </defs>
+      <g id="insightAxisLayer"></g>
+      <g id="insightBarLayer"></g>
+      <g id="insightBarLabelLayer"></g>
+    </svg>
+  </div>
 </div>
 </div>
 
@@ -1050,6 +1081,7 @@ const weeklyDropped = document.getElementById("weeklyDropped");
 const weeklyActions = document.getElementById("weeklyActions");
 const weeklyTargetsDisplay = document.getElementById("weeklyTargetsDisplay");
 const questXpEl = document.getElementById("questXp");
+const questStreakEl = document.getElementById("questStreak");
 const questProgressFill = document.getElementById("questProgressFill");
 const questShieldEl = document.getElementById("questShield");
 const questListEl = document.getElementById("questList");
@@ -1088,6 +1120,7 @@ const waterInput = document.getElementById("waterInput");
 const waterTrackBtn = document.getElementById("waterTrackBtn");
 const waterLimitError = document.getElementById("waterLimitError");
 const waterProgress = document.getElementById("waterProgress");
+const waterClearBtn = document.getElementById("waterClearBtn");
 const sleepInput = document.getElementById("sleepInput");
 const sleepSaveBtn = document.getElementById("sleepSaveBtn");
 const sleepLimitError = document.getElementById("sleepLimitError");
@@ -1101,6 +1134,7 @@ const gratitudeLimitError = document.getElementById("gratitudeLimitError");
 const gratitudeLogs = document.getElementById("gratitudeLogs");
 const dailyChallengeElement = document.getElementById("dailyChallenge");
 const challengeResultElement = document.getElementById("challengeResult");
+const challengeCompleteBtn = document.getElementById("challengeCompleteBtn");
 const importFileInput = document.getElementById("importFileInput");
 const wellnessScoreEl = document.getElementById("wellnessScore");
 const wellnessStatusEl = document.getElementById("wellnessStatus");
@@ -1111,7 +1145,11 @@ const insightTaskTopBar = document.getElementById("insightTaskTopBar");
 const insightMetricTitle = document.getElementById("insightMetricTitle");
 const insightMetricLabel = document.getElementById("insightMetricLabel");
 const insightLineGraph = document.getElementById("insightLineGraph");
-const insightLinePath = document.getElementById("insightLinePath");
+const insightAxisLayer = document.getElementById("insightAxisLayer");
+const insightBarLayer = document.getElementById("insightBarLayer");
+const insightBarLabelLayer = document.getElementById("insightBarLabelLayer");
+const insightGraphTrack = document.getElementById("insightGraphTrack");
+const insightGraphScroll = document.getElementById("insightGraphScroll");
 
 // ---------- SPLASH + AUTH CHECK ----------
 document.body.style.overflow = "hidden";
@@ -1171,13 +1209,14 @@ async function clearAllAccountData() {
     return;
   }
 
-  const warningOne = confirm("⚠️ This will permanently delete your NovaFix app data (tasks, mood, water, sleep, gratitude, reminders, AI chats, and insights). Daily limits for AI, mood, sleep, tasks, reminders, and gratitude will NOT be reset. Continue?");
+  const warningOne = confirm("⚠️ This will permanently delete your NovaFix app data (tasks, mood, water, sleep, gratitude, reminders, AI chats, and insights). Daily limits for AI, mood, sleep, water, tasks, reminders, and gratitude will NOT be reset. Continue?");
   if (!warningOne) return;
 
   const warningTwo = confirm("Final warning: this cannot be undone. Your account will stay signed in, but all app data will be erased. Proceed?");
   if (!warningTwo) return;
 
   try {
+    const previousChallengeText = String(currentChallengeText || "");
     await syncServerClock(user.uid);
     clearAllReminderTimers();
 
@@ -1209,6 +1248,7 @@ async function clearAllAccountData() {
     const moodTodayCount = countTodayFromDates(moodDates);
     const taskTodayCount = taskEntries.reduce((total, entry) => (dateToKey(entry.time) === todayKey ? total + 1 : total), 0);
     const sleepTodayCount = countTodayFromDates(sleepDates);
+    const waterTodayCount = countTodayFromDates(waterDates);
     const gratitudeTodayCount = gratitudeEntries.reduce((total, entry) => (dateToKey(entry.time) === todayKey ? total + 1 : total), 0);
 
     const targetCollections = [
@@ -1229,6 +1269,8 @@ async function clearAllAccountData() {
     await deleteDoc(doc(db, "users", user.uid, "settings", "weeklyTargets")).catch(() => {});
     await deleteDoc(doc(db, "users", user.uid, "settings", "habitQuest")).catch(() => {});
     await deleteDoc(doc(db, "users", user.uid, "insights", "current")).catch(() => {});
+    await deleteDoc(doc(db, "users", user.uid, "insights", "barGraphs")).catch(() => {});
+    persistedBarGraphs = null;
 
     if (preservedAiUsage && Number.isFinite(Number(preservedAiUsage.count))) {
       await setDoc(aiUsageRef, {
@@ -1242,6 +1284,7 @@ async function clearAllAccountData() {
     const preservedMoodCount = preservedDateKey === todayKey ? (Number(preservedDailyUsage?.moodCount) || 0) : 0;
     const preservedTaskCount = preservedDateKey === todayKey ? (Number(preservedDailyUsage?.taskCount) || 0) : 0;
     const preservedSleepCount = preservedDateKey === todayKey ? (Number(preservedDailyUsage?.sleepCount) || 0) : 0;
+    const preservedWaterCount = preservedDateKey === todayKey ? (Number(preservedDailyUsage?.waterCount) || 0) : 0;
     const preservedReminderCount = preservedDateKey === todayKey ? (Number(preservedDailyUsage?.reminderCount) || 0) : 0;
     const preservedGratitudeCount = preservedDateKey === todayKey ? (Number(preservedDailyUsage?.gratitudeCount) || 0) : 0;
 
@@ -1250,6 +1293,7 @@ async function clearAllAccountData() {
       moodCount: Math.max(preservedMoodCount, moodTodayCount),
       taskCount: Math.max(preservedTaskCount, taskTodayCount),
       sleepCount: Math.max(preservedSleepCount, sleepTodayCount),
+      waterCount: Math.max(preservedWaterCount, waterTodayCount),
       reminderCount: Math.max(preservedReminderCount, remindersTodayCount),
       gratitudeCount: Math.max(preservedGratitudeCount, gratitudeTodayCount),
       updatedAt: serverTimestamp()
@@ -1284,6 +1328,7 @@ async function clearAllAccountData() {
     habitQuests.length = 0;
     burnoutRecoveryPlan.length = 0;
     dailyChallengeCompleted = false;
+    currentChallengeText = "";
     currentChallengeDateKey = "";
     questDateKey = "";
     questXp = 0;
@@ -1291,7 +1336,7 @@ async function clearAllAccountData() {
     waterGoal = 0;
 
     await Promise.all([
-      loadDailyChallenge(user.uid),
+      assignFreshDailyChallenge(user.uid, previousChallengeText),
       loadDailyUsage(user.uid),
       loadMoods(user.uid),
       loadAiUsage(user.uid),
@@ -1337,6 +1382,7 @@ try {
         updateAccountPanel(user);
         signInModal.style.display = "none";
         await syncServerClock(user.uid);
+        await loadPersistedBarGraphs(user.uid);
         loadDailyChallenge(user.uid);
         loadDailyUsage(user.uid);
         loadMoods(user.uid);
@@ -1351,9 +1397,11 @@ try {
         loadSleepData(user.uid);
         loadGratitude(user.uid);
         startDailyChallengeWatcher();
+        scheduleDailyChallengeReset(user.uid);
         scheduleWaterGoalReset(user.uid);
       } else {
         stopDailyChallengeWatcher();
+        clearDailyChallengeResetSchedule();
         clearWaterGoalResetSchedule();
         closeAccountPanel();
         updateAccountPanel(null);
@@ -1383,6 +1431,8 @@ try {
         questDateKey = "";
         questXp = 0;
         questShieldAvailable = false;
+        questStreakCount = 0;
+        questLastStreakDateKey = "";
         weeklyTargets = { waterGoal: 0, sleepTarget: 8, taskTarget: 5 };
         if (weeklyRange) weeklyRange.innerText = "Last 7 days review";
         if (weeklyTargetsDisplay) weeklyTargetsDisplay.innerText = "Targets: Water -, Sleep -, Tasks -";
@@ -1390,6 +1440,7 @@ try {
         if (weeklyDropped) weeklyDropped.innerHTML = "";
         if (weeklyActions) weeklyActions.innerHTML = "";
         if (questXpEl) questXpEl.innerText = "XP 0/100";
+        if (questStreakEl) questStreakEl.innerText = "Streak 0 🔥";
         if (questProgressFill) questProgressFill.style.width = "0%";
         if (questShieldEl) questShieldEl.innerText = "Streak shield: Inactive";
         if (questListEl) questListEl.innerHTML = "";
@@ -1409,6 +1460,7 @@ try {
         challengeDates.length = 0;
         dailyChallengeCompleted = false;
         currentChallengeDateKey = "";
+        persistedBarGraphs = null;
         waterGoal = 0;
         aiUsageDateKeyGMT = "";
         aiUsageCount = 0;
@@ -1417,6 +1469,7 @@ try {
         moodDailyUsageCount = 0;
         taskDailyUsageCount = 0;
         sleepDailyUsageCount = 0;
+        waterDailyUsageCount = 0;
         reminderDailyUsageCount = 0;
         gratitudeDailyUsageCount = 0;
         dailyUsageLoaded = false;
@@ -1964,12 +2017,15 @@ let dailyChallengeCompleted=false;
 let currentChallengeText="";
 let currentChallengeDateKey="";
 let challengeWatcherInterval=null;
+let dailyChallengeResetTimeoutId = null;
 let insightsPersistTimer=null;
 let waterGoalResetTimeoutId = null;
 let insightMetricIndex = 0;
 let questDateKey = "";
 let questXp = 0;
 let questShieldAvailable = false;
+let questStreakCount = 0;
+let questLastStreakDateKey = "";
 let weeklyTargets = {
   waterGoal: 0,
   sleepTarget: 8,
@@ -1983,6 +2039,7 @@ const REMINDER_DAILY_LIMIT = 30;
 const TASK_DAILY_LIMIT = 50;
 const GRATITUDE_DAILY_LIMIT = 30;
 const WATER_DAILY_LIMIT = 40;
+const WATER_MAX_GLASSES_PER_ENTRY = 10;
 const SLEEP_DAILY_LIMIT = 8;
 const MAX_REMINDER_ENTRIES = 500;
 const MAX_TASK_ENTRIES = 1500;
@@ -1998,6 +2055,7 @@ let dailyUsageDateKey = "";
 let moodDailyUsageCount = 0;
 let taskDailyUsageCount = 0;
 let sleepDailyUsageCount = 0;
+let waterDailyUsageCount = 0;
 let reminderDailyUsageCount = 0;
 let gratitudeDailyUsageCount = 0;
 let dailyUsageLoaded = false;
@@ -2005,6 +2063,7 @@ let serverTimeOffsetMs = 0;
 let serverTimeSyncedAt = 0;
 let limitCountdownInterval = null;
 let lastFirestoreErrorAlertAt = 0;
+let persistedBarGraphs = null;
 const reminderIntervals = new Map();
 
 function notifyFirestoreError(err) {
@@ -2100,6 +2159,11 @@ function getSleepDailyCount() {
   return Math.max(logsCount, sleepDailyUsageCount);
 }
 
+function getWaterDailyCount() {
+  const logsCount = countTodayFromDates(waterDates);
+  return Math.max(logsCount, waterDailyUsageCount);
+}
+
 function countTodayRemindersFromDocs(reminderDocs) {
   const todayKey = getTodayKey();
   return (reminderDocs || []).reduce((total, docSnap) => {
@@ -2147,7 +2211,7 @@ function updateGratitudeLimitUI() {
 }
 
 function updateWaterLimitUI() {
-  const count = countTodayFromDates(waterDates);
+  const count = getWaterDailyCount();
   const limited = count >= WATER_DAILY_LIMIT;
   applyLimitState(waterLimitError, [waterInput, waterTrackBtn], limited, `Too many water logs for today. Limit is ${WATER_DAILY_LIMIT} per day. Resets at 00:00 server time.`);
 }
@@ -2229,50 +2293,45 @@ function setInsightBar(element, percent) {
   element.style.width = `${bounded}%`;
 }
 
-function buildLinePath(values, width = 640, height = 74) {
-  if (!Array.isArray(values) || !values.length) return "";
-  const padding = 8;
-  const maxValue = Math.max(...values);
-  const minValue = Math.min(...values);
-  const range = Math.max(1, maxValue - minValue);
-  const stepX = values.length > 1 ? (width - (padding * 2)) / (values.length - 1) : 0;
+function getCurrentWeekDates() {
+  const now = getServerNowDate();
+  const currentDayIndex = now.getUTCDay();
+  const sunday = new Date(now);
+  sunday.setUTCDate(now.getUTCDate() - currentDayIndex);
+  sunday.setUTCHours(0, 0, 0, 0);
 
-  return values.map((value, index) => {
-    const x = padding + stepX * index;
-    const normalized = (value - minValue) / range;
-    const y = height - padding - (normalized * (height - (padding * 2)));
-    return `${index === 0 ? "M" : "L"}${x.toFixed(2)} ${y.toFixed(2)}`;
-  }).join(" ");
+  return Array.from({ length: 7 }, (_, index) => {
+    const day = new Date(sunday);
+    day.setUTCDate(sunday.getUTCDate() + index);
+    return day;
+  });
 }
 
-function getLastNDates(n) {
-  const days = [];
-  const today = getServerNowDate();
-  for (let index = n - 1; index >= 0; index -= 1) {
-    const day = new Date(today);
-    day.setUTCDate(today.getUTCDate() - index);
-    day.setUTCHours(0, 0, 0, 0);
-    days.push(day);
-  }
-  return days;
+function moodToScore(value) {
+  const moodValue = String(value || "");
+  if (moodValue.includes("😊")) return 3;
+  if (moodValue.includes("😐")) return 2;
+  if (moodValue.includes("😔")) return 1;
+  return 0;
 }
 
 function getInsightSeries(metricType) {
-  const days = getLastNDates(7);
+  const days = getCurrentWeekDates();
+  const labels = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
 
   if (metricType === "tasks") {
     const values = days.map((day) => {
       const dayKey = dateToKey(day);
       const dayTasks = taskEntries.filter((entry) => dateToKey(entry.time) === dayKey);
       if (!dayTasks.length) return 0;
-      const completed = dayTasks.filter((entry) => !!entry.completed).length;
-      return Math.round((completed / dayTasks.length) * 100);
+      const completedCount = dayTasks.filter((entry) => !!entry.completed).length;
+      return Math.round((completedCount / dayTasks.length) * 100);
     });
-    return values;
+    return { labels, values, maxValue: 100 };
   }
 
   if (metricType === "sleep") {
-    return days.map((day) => {
+    const values = days.map((day) => {
       const dayKey = dateToKey(day);
       let latest = 0;
       sleepHistory.forEach((value, index) => {
@@ -2280,44 +2339,179 @@ function getInsightSeries(metricType) {
       });
       return Number(latest.toFixed(1));
     });
+    return { labels, values, maxValue: 12 };
   }
 
   if (metricType === "mood") {
-    const points = moodHistory.map((value, index) => {
-      const time = toDateSafe(moodDates[index]);
-      const moodValue = String(value || "");
-      const score = moodValue.includes("😊") ? 3 : moodValue.includes("😐") ? 2 : moodValue.includes("😔") ? 1 : 0;
-      return { time, score };
-    }).filter((entry) => !!entry.time);
-
-    points.sort((a, b) => a.time - b.time);
-    const series = points.map((entry) => entry.score);
-    if (!series.length) return [0];
-    return series;
+    const values = days.map((day) => {
+      const dayKey = dateToKey(day);
+      let total = 0;
+      let count = 0;
+      moodHistory.forEach((value, index) => {
+        if (dateToKey(moodDates[index]) !== dayKey) return;
+        const score = moodToScore(value);
+        if (!score) return;
+        total += score;
+        count += 1;
+      });
+      return count ? Number((total / count).toFixed(2)) : 0;
+    });
+    return { labels, values, maxValue: 3 };
   }
 
-  return days.map((day) => {
+  const values = days.map((day) => {
     const dayKey = dateToKey(day);
-    return Number(waterHistory.reduce((sum, value, index) => {
-      return dateToKey(waterDates[index]) === dayKey ? sum + (Number(value) || 0) : sum;
-    }, 0).toFixed(1));
+    let latestValue = 0;
+    for (let index = waterHistory.length - 1; index >= 0; index -= 1) {
+      if (dateToKey(waterDates[index]) !== dayKey) continue;
+      latestValue = Number(waterHistory[index]) || 0;
+      break;
+    }
+    return Number(latestValue.toFixed(1));
   });
+  const waterScaleMax = Math.max(8, ...values.map((value) => Number(value) || 0));
+  return { labels, values, maxValue: waterScaleMax };
+}
+
+function getCurrentWeekRangeKeys() {
+  const weekDates = getCurrentWeekDates();
+  return {
+    weekStartKey: dateToKey(weekDates[0]) || getTodayKey(),
+    weekEndKey: dateToKey(weekDates[weekDates.length - 1]) || getTodayKey()
+  };
+}
+
+function getSeriesWithPersistedFallback(metricName, computedSeries, weekRange) {
+  const baseSeries = computedSeries && !Array.isArray(computedSeries)
+    ? computedSeries
+    : { labels: [], values: [], maxValue: 0 };
+
+  const computedValues = Array.isArray(baseSeries.values) ? baseSeries.values : [];
+  const hasComputedSignal = computedValues.some((value) => Math.abs(Number(value) || 0) > 0);
+  if (hasComputedSignal) return baseSeries;
+
+  const persisted = persistedBarGraphs;
+  if (!persisted || persisted.weekStartKey !== weekRange.weekStartKey || persisted.weekEndKey !== weekRange.weekEndKey) {
+    return baseSeries;
+  }
+
+  const metricPayload = persisted?.[metricName];
+  if (!metricPayload || !Array.isArray(metricPayload.values)) return baseSeries;
+
+  return {
+    labels: Array.isArray(persisted.labels) ? persisted.labels : (Array.isArray(baseSeries.labels) ? baseSeries.labels : []),
+    values: metricPayload.values,
+    maxValue: Number(metricPayload.maxValue) || Number(baseSeries.maxValue) || 0
+  };
 }
 
 function renderInsightMetricView(payload) {
   if (insightMetricTitle) insightMetricTitle.innerText = payload.title;
   if (insightMetricLabel) insightMetricLabel.innerText = payload.label;
-  if (insightLinePath && insightLineGraph) {
-    const sourceSeries = Array.isArray(payload.series) ? payload.series : [];
-    const series = sourceSeries.length ? sourceSeries : [0];
-    const pointGap = 44;
-    const graphWidth = Math.max(640, 24 + ((Math.max(series.length, 2) - 1) * pointGap));
-    insightLineGraph.style.width = `${graphWidth}px`;
-    insightLineGraph.style.minWidth = `${graphWidth}px`;
-    insightLineGraph.setAttribute("viewBox", `0 0 ${graphWidth} 74`);
+  if (insightAxisLayer && insightBarLayer && insightBarLabelLayer && insightLineGraph) {
+    const seriesPayload = payload.series && !Array.isArray(payload.series)
+      ? payload.series
+      : { labels: [], values: Array.isArray(payload.series) ? payload.series : [], maxValue: 0 };
+    const labels = Array.isArray(seriesPayload.labels) && seriesPayload.labels.length ? seriesPayload.labels : ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
+    const sourceValues = Array.isArray(seriesPayload.values) ? seriesPayload.values : [];
+    const values = sourceValues.length ? sourceValues : new Array(labels.length).fill(0);
 
-    const path = buildLinePath(series, graphWidth, 74);
-    insightLinePath.setAttribute("d", path);
+    const yAxisX = 52;
+    const chartRightPadding = 20;
+    const chartTop = 16;
+    const chartBottom = 150;
+    const labelY = 172;
+    const valueOffset = 6;
+    const chartHeight = Math.max(1, chartBottom - chartTop);
+    const providedMax = Math.max(0, Number(seriesPayload.maxValue) || 0);
+    const rawMaxValue = Math.max(1, providedMax, ...values.map((value) => Number(value) || 0));
+    const yMaxValue = rawMaxValue <= 5 ? 5 : Math.ceil(rawMaxValue / 5) * 5;
+    const usableWidth = Math.max(520, 82 * labels.length);
+    const graphWidth = Math.max(640, yAxisX + usableWidth + chartRightPadding);
+    const viewBoxHeight = 188;
+    const barAreaWidth = Math.max(1, graphWidth - yAxisX - chartRightPadding);
+    const slotWidth = barAreaWidth / labels.length;
+    const barWidth = Math.min(28, Math.max(14, slotWidth * 0.38));
+
+    if (insightGraphTrack) {
+      insightGraphTrack.style.width = `${graphWidth}px`;
+      insightGraphTrack.style.minWidth = `${graphWidth}px`;
+    }
+    insightLineGraph.style.width = "100%";
+    insightLineGraph.style.minWidth = "100%";
+    insightLineGraph.setAttribute("viewBox", `0 0 ${graphWidth} ${viewBoxHeight}`);
+
+    insightAxisLayer.innerHTML = "";
+    insightBarLayer.innerHTML = "";
+    insightBarLabelLayer.innerHTML = "";
+
+    const yTicks = 5;
+    for (let tick = 0; tick <= yTicks; tick += 1) {
+      const ratio = tick / yTicks;
+      const y = chartBottom - (ratio * chartHeight);
+      const tickValue = Math.round(yMaxValue * ratio);
+
+      const tickLabel = document.createElementNS("http://www.w3.org/2000/svg", "text");
+      tickLabel.setAttribute("x", (yAxisX - 8).toFixed(2));
+      tickLabel.setAttribute("y", (y + 3).toFixed(2));
+      tickLabel.setAttribute("text-anchor", "end");
+      tickLabel.setAttribute("class", "insight-tick-label");
+      tickLabel.textContent = String(tickValue);
+      insightAxisLayer.appendChild(tickLabel);
+    }
+
+    const yAxis = document.createElementNS("http://www.w3.org/2000/svg", "line");
+    yAxis.setAttribute("x1", yAxisX.toFixed(2));
+    yAxis.setAttribute("y1", chartTop.toFixed(2));
+    yAxis.setAttribute("x2", yAxisX.toFixed(2));
+    yAxis.setAttribute("y2", chartBottom.toFixed(2));
+    yAxis.setAttribute("class", "insight-axis-line");
+    insightAxisLayer.appendChild(yAxis);
+
+    const xAxis = document.createElementNS("http://www.w3.org/2000/svg", "line");
+    xAxis.setAttribute("x1", yAxisX.toFixed(2));
+    xAxis.setAttribute("y1", chartBottom.toFixed(2));
+    xAxis.setAttribute("x2", (graphWidth - chartRightPadding).toFixed(2));
+    xAxis.setAttribute("y2", chartBottom.toFixed(2));
+    xAxis.setAttribute("class", "insight-axis-line");
+    insightAxisLayer.appendChild(xAxis);
+
+    values.forEach((rawValue, index) => {
+      const value = Math.max(0, Number(rawValue) || 0);
+      const normalized = Math.max(0, Math.min(1, value / yMaxValue));
+      const barHeight = normalized > 0 ? Math.max(3, normalized * chartHeight) : 0;
+      const slotStart = yAxisX + (index * slotWidth);
+      const x = slotStart + ((slotWidth - barWidth) / 2);
+      const y = chartBottom - barHeight;
+
+      const bar = document.createElementNS("http://www.w3.org/2000/svg", "rect");
+      bar.setAttribute("x", x.toFixed(2));
+      bar.setAttribute("y", y.toFixed(2));
+      bar.setAttribute("width", barWidth.toFixed(2));
+      bar.setAttribute("height", barHeight.toFixed(2));
+      bar.setAttribute("rx", "6");
+      bar.setAttribute("ry", "6");
+      bar.setAttribute("class", "insight-column");
+      insightBarLayer.appendChild(bar);
+
+      const valueLabel = document.createElementNS("http://www.w3.org/2000/svg", "text");
+      valueLabel.setAttribute("x", (x + (barWidth / 2)).toFixed(2));
+      valueLabel.setAttribute("y", (Math.max(chartTop, y - valueOffset)).toFixed(2));
+      valueLabel.setAttribute("class", "insight-bar-value");
+      valueLabel.textContent = Number.isInteger(value) ? String(value) : value.toFixed(1);
+      insightBarLabelLayer.appendChild(valueLabel);
+
+      const dayLabel = document.createElementNS("http://www.w3.org/2000/svg", "text");
+      dayLabel.setAttribute("x", (x + (barWidth / 2)).toFixed(2));
+      dayLabel.setAttribute("y", labelY.toFixed(2));
+      dayLabel.setAttribute("class", "insight-bar-label");
+      dayLabel.textContent = labels[index] || "";
+      insightBarLabelLayer.appendChild(dayLabel);
+    });
+
+    if (insightGraphScroll) {
+      insightGraphScroll.scrollLeft = 0;
+    }
   }
 }
 
@@ -2616,6 +2810,7 @@ function generateAdaptiveQuests() {
 
 function renderHabitQuestUI() {
   if (questXpEl) questXpEl.innerText = `XP ${questXp}/100`;
+  if (questStreakEl) questStreakEl.innerText = `Streak ${questStreakCount} 🔥`;
   if (questProgressFill) questProgressFill.style.width = `${Math.max(0, Math.min(100, questXp))}%`;
   if (questShieldEl) questShieldEl.innerText = `Streak shield: ${questShieldAvailable ? "Active" : "Inactive"}`;
 
@@ -2652,12 +2847,42 @@ async function saveHabitQuestState(userId) {
       dateKey: questDateKey,
       xp: questXp,
       shield: questShieldAvailable,
+      streakCount: questStreakCount,
+      lastStreakDateKey: questLastStreakDateKey,
       quests: habitQuests,
       updatedAt: serverTimestamp()
     }, { merge: true });
   } catch (err) {
     notifyFirestoreError(err);
   }
+}
+
+function dayDiffFromKeys(fromKey, toKey) {
+  if (!fromKey || !toKey) return Infinity;
+  const fromDate = new Date(`${fromKey}T00:00:00.000Z`);
+  const toDate = new Date(`${toKey}T00:00:00.000Z`);
+  if (Number.isNaN(fromDate.getTime()) || Number.isNaN(toDate.getTime())) return Infinity;
+  return Math.floor((toDate.getTime() - fromDate.getTime()) / 86400000);
+}
+
+function normalizeQuestStreakForToday(todayKey = getTodayKey()) {
+  if (!questLastStreakDateKey) {
+    questStreakCount = 0;
+    return;
+  }
+  const diff = dayDiffFromKeys(questLastStreakDateKey, todayKey);
+  if (diff > 1 || diff < 0) questStreakCount = 0;
+}
+
+function awardQuestStreakForToday(todayKey = getTodayKey()) {
+  if (questLastStreakDateKey === todayKey) return;
+  const diff = dayDiffFromKeys(questLastStreakDateKey, todayKey);
+  if (diff === 1) {
+    questStreakCount += 1;
+  } else {
+    questStreakCount = 1;
+  }
+  questLastStreakDateKey = todayKey;
 }
 
 async function loadHabitQuest(userId) {
@@ -2669,6 +2894,9 @@ async function loadHabitQuest(userId) {
       const data = snap.data();
       questXp = Number(data.xp) || 0;
       questShieldAvailable = !!data.shield;
+      questStreakCount = Math.max(0, Number(data.streakCount) || 0);
+      questLastStreakDateKey = String(data.lastStreakDateKey || "");
+      normalizeQuestStreakForToday(questDateKey);
 
       if (data.dateKey === questDateKey && Array.isArray(data.quests) && data.quests.length >= 4) {
         habitQuests.length = 0;
@@ -2697,6 +2925,8 @@ async function loadHabitQuest(userId) {
     } else {
       questXp = 0;
       questShieldAvailable = false;
+      questStreakCount = 0;
+      questLastStreakDateKey = "";
       generateAdaptiveQuests();
       await saveHabitQuestState(userId);
     }
@@ -2823,6 +3053,7 @@ async function completeHabitQuest(index) {
   if (allDone) {
     questXp += 20;
     questShieldAvailable = true;
+    awardQuestStreakForToday(getTodayKey());
   }
 
   while (questXp >= 100) questXp -= 100;
@@ -2843,6 +3074,7 @@ function ensureHabitQuestCurrent() {
 
   if (questDateKey !== todayKey) {
     questDateKey = todayKey;
+    normalizeQuestStreakForToday(todayKey);
     generateAdaptiveQuests();
     const user = auth.currentUser;
     if (user) saveHabitQuestState(user.uid);
@@ -2935,14 +3167,43 @@ function queueInsightsPersist(payload) {
     const user = auth.currentUser;
     if (!user) return;
     try {
+      if (payload?.barGraphs) {
+        persistedBarGraphs = payload.barGraphs;
+      }
+
       await setDoc(doc(db, "users", user.uid, "insights", "current"), {
         ...payload,
         updatedAt: serverTimestamp()
       }, { merge: true });
+
+      if (payload?.barGraphs) {
+        await setDoc(doc(db, "users", user.uid, "insights", "barGraphs"), {
+          ...payload.barGraphs,
+          updatedAt: serverTimestamp()
+        }, { merge: true });
+      }
     } catch (err) {
       notifyFirestoreError(err);
     }
   }, 350);
+}
+
+async function loadPersistedBarGraphs(userId) {
+  if (!userId) return;
+
+  try {
+    const barGraphsSnap = await getDoc(doc(db, "users", userId, "insights", "barGraphs"));
+    if (barGraphsSnap.exists()) {
+      persistedBarGraphs = barGraphsSnap.data() || null;
+      return;
+    }
+
+    const currentSnap = await getDoc(doc(db, "users", userId, "insights", "current"));
+    const currentData = currentSnap.exists() ? currentSnap.data() : null;
+    persistedBarGraphs = currentData?.barGraphs || null;
+  } catch (err) {
+    notifyFirestoreError(err);
+  }
 }
 
 function getTodayKey() {
@@ -3013,6 +3274,7 @@ async function saveDailyUsage(userId) {
       moodCount: Number(moodDailyUsageCount) || 0,
       taskCount: Number(taskDailyUsageCount) || 0,
       sleepCount: Number(sleepDailyUsageCount) || 0,
+      waterCount: Number(waterDailyUsageCount) || 0,
       reminderCount: Number(reminderDailyUsageCount) || 0,
       gratitudeCount: Number(gratitudeDailyUsageCount) || 0,
       updatedAt: serverTimestamp()
@@ -3028,6 +3290,7 @@ async function loadDailyUsage(userId) {
   moodDailyUsageCount = 0;
   taskDailyUsageCount = 0;
   sleepDailyUsageCount = 0;
+  waterDailyUsageCount = 0;
   reminderDailyUsageCount = 0;
   gratitudeDailyUsageCount = 0;
 
@@ -3039,6 +3302,7 @@ async function loadDailyUsage(userId) {
         moodDailyUsageCount = Number(data.moodCount) || 0;
         taskDailyUsageCount = Number(data.taskCount) || 0;
         sleepDailyUsageCount = Number(data.sleepCount) || 0;
+        waterDailyUsageCount = Number(data.waterCount) || 0;
         reminderDailyUsageCount = Number(data.reminderCount) || 0;
         gratitudeDailyUsageCount = Number(data.gratitudeCount) || 0;
       } else {
@@ -3054,6 +3318,7 @@ async function loadDailyUsage(userId) {
     updateMoodLimitUI();
     updateTaskLimitUI();
     updateSleepLimitUI();
+    updateWaterLimitUI();
     updateGratitudeLimitUI();
     await updateReminderLimitUI(userId);
   }
@@ -3072,6 +3337,7 @@ async function ensureDailyUsageCurrent(userId) {
     moodDailyUsageCount = 0;
     taskDailyUsageCount = 0;
     sleepDailyUsageCount = 0;
+    waterDailyUsageCount = 0;
     reminderDailyUsageCount = 0;
     gratitudeDailyUsageCount = 0;
     await saveDailyUsage(userId);
@@ -3080,6 +3346,7 @@ async function ensureDailyUsageCurrent(userId) {
   updateMoodLimitUI();
   updateTaskLimitUI();
   updateSleepLimitUI();
+  updateWaterLimitUI();
   updateGratitudeLimitUI();
   await updateReminderLimitUI(userId);
 }
@@ -3146,6 +3413,30 @@ function stopDailyChallengeWatcher() {
   }
 }
 
+function clearDailyChallengeResetSchedule() {
+  if (dailyChallengeResetTimeoutId) {
+    clearTimeout(dailyChallengeResetTimeoutId);
+    dailyChallengeResetTimeoutId = null;
+  }
+}
+
+function scheduleDailyChallengeReset(userId) {
+  clearDailyChallengeResetSchedule();
+
+  const runReset = async () => {
+    const activeUser = auth.currentUser;
+    if (!activeUser || activeUser.uid !== userId) {
+      scheduleDailyChallengeReset(userId);
+      return;
+    }
+
+    await loadDailyChallenge(userId);
+    scheduleDailyChallengeReset(userId);
+  };
+
+  dailyChallengeResetTimeoutId = setTimeout(runReset, getMillisecondsUntilNextMidnight());
+}
+
 function clearWaterGoalResetSchedule() {
   if (waterGoalResetTimeoutId) {
     clearTimeout(waterGoalResetTimeoutId);
@@ -3160,6 +3451,32 @@ function getMillisecondsUntilNextMidnight() {
   return Math.max(1, nextMidnight.getTime() - now.getTime());
 }
 
+async function resetWaterDayData(userId, dateKey = getTodayKey()) {
+  try {
+    const intakeSnapshot = await getDocs(collection(db, "users", userId, "waterIntake"));
+    await Promise.all(intakeSnapshot.docs.map((docSnap) => deleteDoc(docSnap.ref)));
+    await setDoc(doc(db, "users", userId, "settings", "water"), {
+      goal: 0,
+      goalDateKey: dateKey,
+      lastResetDateKey: dateKey
+    }, { merge: true });
+
+    const activeUser = auth.currentUser;
+    if (activeUser && activeUser.uid === userId) {
+      waterHistory.length = 0;
+      waterDates.length = 0;
+      waterGoal = 0;
+      waterGoalInput.value = "";
+      waterInput.value = "";
+      updateWaterProgress();
+      updateWaterLimitUI();
+      updateWaterClearButtonState();
+    }
+  } catch (err) {
+    notifyFirestoreError(err);
+  }
+}
+
 function scheduleWaterGoalReset(userId) {
   clearWaterGoalResetSchedule();
 
@@ -3170,18 +3487,7 @@ function scheduleWaterGoalReset(userId) {
       return;
     }
 
-    waterGoal = 0;
-    waterGoalInput.value = "";
-    updateWaterProgress();
-
-    try {
-      await setDoc(doc(db, "users", userId, "settings", "water"), {
-        goal: 0,
-        goalDateKey: getTodayKey()
-      }, { merge: true });
-    } catch (err) {
-      notifyFirestoreError(err);
-    }
+    await resetWaterDayData(userId, getTodayKey());
 
     scheduleWaterGoalReset(userId);
   };
@@ -3387,7 +3693,7 @@ async function runCrashRescueFlow(options = {}) {
     updateCrashPreventionUI();
     updateWeeklyReview();
     if (showAlert) {
-      alert("✅ Rescue protocol started. I set a 20-minute recovery reminder.");
+      alert("✅ Rescue protocol started. A 20-minute recovery reminder is now set.");
     }
     return {
       ok: true,
@@ -3426,10 +3732,11 @@ function updateInsights() {
     setInsightBar(insightTaskTopBar, taskCompletion);
   }
 
-  const taskSeries = getInsightSeries("tasks");
-  const sleepSeries = getInsightSeries("sleep");
-  const waterSeries = getInsightSeries("water");
-  const moodSeries = getInsightSeries("mood");
+  const weekRange = getCurrentWeekRangeKeys();
+  const taskSeries = getSeriesWithPersistedFallback("tasks", getInsightSeries("tasks"), weekRange);
+  const sleepSeries = getSeriesWithPersistedFallback("sleep", getInsightSeries("sleep"), weekRange);
+  const waterSeries = getSeriesWithPersistedFallback("water", getInsightSeries("water"), weekRange);
+  const moodSeries = getSeriesWithPersistedFallback("mood", getInsightSeries("mood"), weekRange);
   const moodToday = getTodayMood();
   const moodLabel = moodToday.includes("😊") ? "Happy" : moodToday.includes("😐") ? "Neutral" : moodToday.includes("😔") ? "Low" : "Not logged";
   const moodPercent = moodToday.includes("😊") ? 100 : moodToday.includes("😐") ? 66 : moodToday.includes("😔") ? 33 : 0;
@@ -3469,6 +3776,8 @@ function updateInsights() {
   updateBurnoutRadarUI();
   updateWeeklyReview();
 
+  const weekStartKey = weekRange.weekStartKey;
+  const weekEndKey = weekRange.weekEndKey;
   const currentScore = Number((wellnessScoreEl?.innerText || "0/100").split("/")[0]) || 0;
   queueInsightsPersist({
     moodStreak,
@@ -3481,7 +3790,28 @@ function updateInsights() {
     wellnessScore: currentScore,
     wellnessStatus: wellnessStatusEl.innerText || "Needs Focus",
     dailyChallengeCompleted,
-    dailyChallenge: currentChallengeText || ""
+    dailyChallenge: currentChallengeText || "",
+    barGraphs: {
+      weekStartKey,
+      weekEndKey,
+      labels: Array.isArray(taskSeries?.labels) ? taskSeries.labels : [],
+      tasks: {
+        values: Array.isArray(taskSeries?.values) ? taskSeries.values : [],
+        maxValue: Number(taskSeries?.maxValue) || 100
+      },
+      sleep: {
+        values: Array.isArray(sleepSeries?.values) ? sleepSeries.values : [],
+        maxValue: Number(sleepSeries?.maxValue) || 12
+      },
+      water: {
+        values: Array.isArray(waterSeries?.values) ? waterSeries.values : [],
+        maxValue: Number(waterSeries?.maxValue) || 8
+      },
+      mood: {
+        values: Array.isArray(moodSeries?.values) ? moodSeries.values : [],
+        maxValue: Number(moodSeries?.maxValue) || 3
+      }
+    }
   });
 }
 
@@ -3881,7 +4211,7 @@ async function tryAiAction(input, user) {
     if (!rescueResult?.ok) {
       return `ℹ️ ${rescueResult?.message || "Could not start rescue right now."}`;
     }
-    return `🛟 Mood crash rescue started (${rescueResult.level}). I added a 20-minute recovery reminder. Focus now: ${rescueResult.reason}.`;
+    return `🛟 Mood crash rescue started (${rescueResult.level}). A 20-minute recovery reminder is now set. Focus now: ${rescueResult.reason}.`;
   }
 
   const taskMatch = msg.match(/^(add|create)\s+(a\s+)?task\s*[:\-]?\s*(.+)$/i);
@@ -4643,17 +4973,24 @@ function renderTask(entry) {
   toggleBtn.title = "Toggle complete";
   toggleBtn.onclick = async () => {
     entry.completed = !entry.completed;
+    entry.completedAt = entry.completed ? getServerNowDate() : null;
     span.classList.toggle("task-done", entry.completed);
     toggleBtn.textContent = entry.completed ? "✅" : "⬜";
 
     const listIndex = taskEntries.findIndex((taskItem) => taskItem.id === entry.id);
-    if (listIndex >= 0) taskEntries[listIndex].completed = entry.completed;
+    if (listIndex >= 0) {
+      taskEntries[listIndex].completed = entry.completed;
+      taskEntries[listIndex].completedAt = entry.completedAt;
+    }
     updateInsights();
 
     const user = auth.currentUser;
     if (!user || !entry.id) return;
     try {
-      await updateDoc(doc(db, "users", user.uid, "tasks", entry.id), { completed: entry.completed });
+      await updateDoc(doc(db, "users", user.uid, "tasks", entry.id), {
+        completed: entry.completed,
+        completedAt: entry.completed ? serverTimestamp() : null
+      });
     } catch (err) {
       notifyFirestoreError(err);
     }
@@ -4720,7 +5057,8 @@ async function loadTasks(userId) {
     docs.forEach((entry) => {
       const normalized = {
         ...entry,
-        completed: !!entry.completed
+        completed: !!entry.completed,
+        completedAt: toDateSafe(entry.completedAt)
       };
       taskEntries.push(normalized);
       renderTask(normalized);
@@ -4755,9 +5093,10 @@ async function addTask(){
     const ref = await addDoc(collection(db, "users", user.uid, "tasks"), {
       text: t,
       completed: false,
+      completedAt: null,
       time: serverTimestamp()
     });
-    const newTask = { id: ref.id, text: t, completed: false, time: getServerNowDate() };
+    const newTask = { id: ref.id, text: t, completed: false, completedAt: null, time: getServerNowDate() };
     taskEntries.push(newTask);
     taskDailyUsageCount += 1;
     await saveDailyUsage(user.uid);
@@ -4893,13 +5232,25 @@ async function saveMood() {
 let waterGoal=0;
 function updateWaterProgress() {
   const todayKey = getTodayKey();
-  const sum = waterHistory.reduce((accumulator, value, index) => {
+  let latestTodayValue = 0;
+  for (let index = waterHistory.length - 1; index >= 0; index -= 1) {
     const dateKey = dateToKey(waterDates[index]);
-    return dateKey === todayKey ? accumulator + value : accumulator;
-  }, 0);
-  const percent = waterGoal > 0 ? Math.round((sum / waterGoal) * 100) : 0;
-  waterProgress.innerText = `${sum}/${waterGoal} (${percent}%)`;
+    if (dateKey === todayKey) {
+      latestTodayValue = Number(waterHistory[index]) || 0;
+      break;
+    }
+  }
+  const percent = waterGoal > 0 ? Math.round((latestTodayValue / waterGoal) * 100) : 0;
+  waterProgress.innerText = `${latestTodayValue}/${waterGoal} (${percent}%)`;
+  updateWaterClearButtonState();
   updateInsights();
+}
+
+function updateWaterClearButtonState() {
+  if (!waterClearBtn) return;
+  const hasWaterLogs = waterHistory.length > 0 || waterDates.length > 0;
+  const hasGoal = (Number(waterGoal) || 0) > 0;
+  waterClearBtn.disabled = !(hasWaterLogs || hasGoal);
 }
 
 async function setWaterGoal(){
@@ -4915,9 +5266,11 @@ async function setWaterGoal(){
 
   if (!user) return;
   try {
+    const todayKey = getTodayKey();
     await setDoc(doc(db, "users", user.uid, "settings", "water"), {
       goal: waterGoal,
-      goalDateKey: getTodayKey()
+      goalDateKey: todayKey,
+      lastResetDateKey: todayKey
     }, { merge: true });
   } catch (err) {
     notifyFirestoreError(err);
@@ -4929,24 +5282,40 @@ async function loadWaterData(userId) {
   waterDates.length = 0;
 
   try {
+    const todayKey = getTodayKey();
+    let shouldResetDayData = false;
     const waterSettings = await getDoc(doc(db, "users", userId, "settings", "water"));
     if (waterSettings.exists()) {
       const settings = waterSettings.data();
       const savedGoal = Number(settings.goal) || 0;
       const goalDateKey = settings.goalDateKey || null;
-      const todayKey = getTodayKey();
+      const lastResetDateKey = settings.lastResetDateKey || null;
 
-      if (savedGoal > 0 && goalDateKey && goalDateKey !== todayKey) {
-        waterGoal = 0;
+      if (lastResetDateKey && lastResetDateKey !== todayKey) {
+        shouldResetDayData = true;
+      } else if (!lastResetDateKey) {
         await setDoc(doc(db, "users", userId, "settings", "water"), {
-          goal: 0,
-          goalDateKey: todayKey
+          lastResetDateKey: todayKey
         }, { merge: true });
+      }
+
+      if (!shouldResetDayData && savedGoal > 0 && goalDateKey && goalDateKey !== todayKey) {
+        shouldResetDayData = true;
+      }
+
+      if (shouldResetDayData) {
+        await resetWaterDayData(userId, todayKey);
+        waterGoal = 0;
       } else {
         waterGoal = savedGoal;
       }
     } else {
       waterGoal = 0;
+      await setDoc(doc(db, "users", userId, "settings", "water"), {
+        goal: 0,
+        goalDateKey: todayKey,
+        lastResetDateKey: todayKey
+      }, { merge: true });
     }
     waterGoalInput.value = waterGoal || "";
 
@@ -4969,6 +5338,7 @@ async function loadWaterData(userId) {
 
     updateWaterLimitUI();
     updateWaterProgress();
+    updateWaterClearButtonState();
   } catch (err) {
     notifyFirestoreError(err);
   }
@@ -4983,8 +5353,14 @@ async function saveWater() {
 
   const v = +waterInput.value;
   if (!v) return; // ignore empty or 0 input
+  if (v > WATER_MAX_GLASSES_PER_ENTRY) {
+    alert(`❌ You can log a maximum of ${WATER_MAX_GLASSES_PER_ENTRY} glasses at once.`);
+    return;
+  }
 
-  if (countTodayFromDates(waterDates) >= WATER_DAILY_LIMIT) {
+  await ensureDailyUsageCurrent(user.uid);
+
+  if (getWaterDailyCount() >= WATER_DAILY_LIMIT) {
     alert(`Too many water logs for today. Limit is ${WATER_DAILY_LIMIT} per day. Resets at 00:00 server time.`);
     updateWaterLimitUI();
     return;
@@ -4997,6 +5373,8 @@ async function saveWater() {
       glasses: v,
       time: serverTimestamp()
     });
+    waterDailyUsageCount += 1;
+    await saveDailyUsage(user.uid);
     waterDates.push(getServerNowDate());
     updateWaterProgress();
     waterInput.value = "";
@@ -5024,13 +5402,15 @@ async function clearWaterData() {
   waterInput.value = "";
   updateWaterProgress();
   updateWaterLimitUI();
+  updateWaterClearButtonState();
 
   try {
     const intakeSnapshot = await getDocs(collection(db, "users", user.uid, "waterIntake"));
     await Promise.all(intakeSnapshot.docs.map((docSnap) => deleteDoc(docSnap.ref)));
     await setDoc(doc(db, "users", user.uid, "settings", "water"), {
       goal: 0,
-      goalDateKey: getTodayKey()
+      goalDateKey: getTodayKey(),
+      lastResetDateKey: getTodayKey()
     }, { merge: true });
     alert("✅ Water intake and goal cleared.");
   } catch (err) {
@@ -5318,6 +5698,7 @@ async function exportAllData() {
     const weeklyTargetsSnap = await getDoc(doc(db, "users", user.uid, "settings", "weeklyTargets"));
     const habitQuestSnap = await getDoc(doc(db, "users", user.uid, "settings", "habitQuest"));
     const insightsSnap = await getDoc(doc(db, "users", user.uid, "insights", "current"));
+    const insightsBarGraphsSnap = await getDoc(doc(db, "users", user.uid, "insights", "barGraphs"));
     const [
       moodsSnap,
       tasksSnap,
@@ -5350,6 +5731,7 @@ async function exportAllData() {
       weeklyTargets: weeklyTargetsSnap.exists() ? weeklyTargetsSnap.data() : null,
       habitQuest: habitQuestSnap.exists() ? habitQuestSnap.data() : null,
       insightsCurrent: insightsSnap.exists() ? insightsSnap.data() : null,
+      insightsBarGraphs: insightsBarGraphsSnap.exists() ? insightsBarGraphsSnap.data() : null,
       moods: moodsSnap.docs.map((docSnap) => ({ id: docSnap.id, ...docSnap.data() })),
       tasks: tasksSnap.docs.map((docSnap) => ({ id: docSnap.id, ...docSnap.data() })),
       waterIntake: waterSnap.docs.map((docSnap) => ({ id: docSnap.id, ...docSnap.data() })),
@@ -5433,6 +5815,8 @@ async function importDataFileChange(event) {
     await deleteDoc(doc(db, "users", user.uid, "settings", "weeklyTargets")).catch(() => {});
     await deleteDoc(doc(db, "users", user.uid, "settings", "habitQuest")).catch(() => {});
     await deleteDoc(doc(db, "users", user.uid, "insights", "current")).catch(() => {});
+    await deleteDoc(doc(db, "users", user.uid, "insights", "barGraphs")).catch(() => {});
+    persistedBarGraphs = null;
 
     const moods = Array.isArray(payload.moods) ? payload.moods : [];
     const tasks = Array.isArray(payload.tasks) ? payload.tasks : [];
@@ -5537,6 +5921,14 @@ async function importDataFileChange(event) {
       }, { merge: true });
     }
 
+    if (payload.insightsBarGraphs) {
+      await setDoc(doc(db, "users", user.uid, "insights", "barGraphs"), {
+        ...payload.insightsBarGraphs,
+        updatedAt: normalizeExportTime(payload.insightsBarGraphs.updatedAt)
+      }, { merge: true });
+      persistedBarGraphs = payload.insightsBarGraphs;
+    }
+
     await Promise.all([
       loadDailyChallenge(user.uid),
       loadDailyUsage(user.uid),
@@ -5571,8 +5963,72 @@ const dailyChallenges = [
   "Drink 1 extra glass of water today.",
   "Take a 5-minute stretch break every 2 hours.",
   "Eat a fruit or vegetable with every meal.",
-  "Meditate for 5–10 minutes."
+  "Meditate for 5–10 minutes.",
+  "Read 5 pages of a book.",
+  "Take a 10-minute walk without your phone.",
+  "Do 20 squats or 15 push-ups.",
+  "Write one short journal entry about your day.",
+  "Complete one pending task before noon.",
+  "Declutter 10 items from your workspace.",
+  "Practice deep breathing for 3 minutes.",
+  "Spend 15 minutes learning a new skill.",
+  "No sugary drink for the next 12 hours.",
+  "Drink water before every meal today.",
+  "Sleep 30 minutes earlier tonight.",
+  "Send one kind message to a friend or family member.",
+  "Do a 5-minute posture check and correction.",
+  "Complete one task in a 25-minute focus sprint.",
+  "Write your top 3 priorities for tomorrow.",
+  "Listen to calming music for 10 minutes.",
+  "Avoid doom-scrolling after dinner.",
+  "Take a screen break for 20 minutes.",
+  "Do a 10-minute room reset.",
+  "Try a healthy snack instead of junk food once today.",
+  "Spend 10 minutes in sunlight.",
+  "Track and finish one important task fully.",
+  "Do a quick gratitude walk and notice 3 good things.",
+  "Practice a hobby for 20 minutes.",
+  "Review your expenses for the day in 5 minutes.",
+  "Write one positive affirmation and repeat it 5 times.",
+  "No phone for the first 30 minutes after waking up.",
+  "Complete your toughest task first.",
+  "Do a 5-minute stretching routine before sleep."
 ];
+
+function pickFreshDailyChallengeText(excludeText = "") {
+  const filtered = dailyChallenges.filter((entry) => String(entry || "") !== String(excludeText || ""));
+  const pool = filtered.length ? filtered : dailyChallenges;
+  const index = Math.floor(Math.random() * pool.length);
+  return pool[index] || pickChallengeForDate(getTodayKey());
+}
+
+async function assignFreshDailyChallenge(userId, excludeText = "") {
+  const todayKey = getTodayKey();
+  const challenge = pickFreshDailyChallengeText(excludeText);
+
+  currentChallengeDateKey = todayKey;
+  currentChallengeText = challenge;
+  dailyChallengeCompleted = false;
+  dailyChallengeElement.innerText = challenge;
+  challengeResultElement.innerText = "";
+  updateChallengeCompleteButtonState();
+
+  if (userId) {
+    try {
+      await setDoc(doc(db, "users", userId, "settings", "dailyChallenge"), {
+        challenge,
+        completed: false,
+        dateKey: todayKey,
+        timeZone: userTimeZone,
+        updatedAt: serverTimestamp()
+      }, { merge: true });
+    } catch (err) {
+      notifyFirestoreError(err);
+    }
+  }
+
+  updateInsights();
+}
 
 // ---------- Function to pick a random daily challenge ----------
 function pickDailyChallenge() {
@@ -5583,7 +6039,13 @@ function pickDailyChallenge() {
   dailyChallengeElement.innerText = challenge;
   challengeResultElement.innerText = "";
   dailyChallengeCompleted = false;
+  updateChallengeCompleteButtonState();
   updateInsights();
+}
+
+function updateChallengeCompleteButtonState() {
+  if (!challengeCompleteBtn) return;
+  challengeCompleteBtn.disabled = !!dailyChallengeCompleted;
 }
 
 async function saveDailyChallengeState() {
@@ -5647,6 +6109,7 @@ async function loadDailyChallenge(userId) {
     dailyChallengeCompleted = completed;
     dailyChallengeElement.innerText = challenge;
     challengeResultElement.innerText = completed ? "✅ Challenge completed! Great job!" : "";
+    updateChallengeCompleteButtonState();
 
     if (completed) {
       const parsedToday = dateKeyToDate(todayKey);
@@ -5670,6 +6133,7 @@ pickDailyChallenge();
 async function completeChallenge() {
   if (dailyChallengeCompleted) {
     challengeResultElement.innerText = "✅ Challenge already completed for today.";
+    updateChallengeCompleteButtonState();
     return;
   }
 
@@ -5681,6 +6145,7 @@ async function completeChallenge() {
   }
 
   challengeResultElement.innerText = "✅ Challenge completed! Great job!";
+  updateChallengeCompleteButtonState();
   updateInsights();
   await saveDailyChallengeState();
 }
