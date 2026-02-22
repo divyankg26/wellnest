@@ -29,6 +29,7 @@ body{
   background-size:260% 260%;
   animation:waveMove 36s ease-in-out infinite alternate;
   overflow-x:hidden;
+  -webkit-tap-highlight-color: transparent;
 }
 
 @keyframes waveMove{
@@ -576,14 +577,18 @@ textarea:focus-visible{
 }
 
 .chat,#moodLogs,#gratitudeLogs,#reminders,#taskList,#timeMirror{
-  flex-grow:1;
+  flex:1 1 0;
   min-height:0;
-  overflow-y:scroll;
+  overflow-y:auto;
   padding:10px;
   border-radius:12px;
   background:rgba(0,0,0,.15);
   margin-top:8px;
   border:1px solid rgba(255,255,255,.14);
+}
+
+#moodLogs{
+  min-height:130px;
 }
 
 #reminders,#taskList,#gratitudeLogs{
@@ -1284,20 +1289,21 @@ textarea:focus-visible{
   }
 
   .scroll-card{
-    height:400px;
-    max-height:400px;
+    height:390px;
+    max-height:390px;
   }
 }
 
 @media (max-width: 640px){
   header{
-    padding:22px 12px 20px;
+    padding:20px 12px 18px;
   }
 
   #accountBtn{
     right:12px;
-    top:18px;
-    padding:7px 12px;
+    top:14px;
+    padding:9px 12px;
+    min-height:40px;
   }
 
   header h1{
@@ -1311,12 +1317,12 @@ textarea:focus-visible{
   .dashboard{
     grid-template-columns:1fr;
     gap:14px;
-    padding:14px 12px 130px;
+    padding:12px 10px calc(120px + env(safe-area-inset-bottom));
   }
 
   .card{
     border-radius:16px;
-    padding:14px;
+    padding:13px;
   }
 
   .card h2{
@@ -1328,15 +1334,75 @@ textarea:focus-visible{
     gap:6px;
   }
 
+  .input-group > *{
+    flex:1 1 100%;
+    min-width:0;
+  }
+
   input,select,textarea,button{
-    font-size:14px;
+    font-size:16px;
+    min-height:44px;
+  }
+
+  .chat,#moodLogs,#gratitudeLogs,#reminders,#taskList,#timeMirror{
+    padding:9px;
+  }
+
+  .scroll-card{
+    height:360px;
+    max-height:360px;
+  }
+
+  .startup-actions-two{
+    flex-wrap:wrap;
+  }
+
+  .startup-actions-two button{
+    width:100%;
+  }
+
+  .item-actions button,
+  .mood-remove,
+  .chat-edit-btn,
+  .crash-banner-row button{
+    min-height:38px;
+  }
+
+  #uxToastText{
+    font-size:12px;
   }
 
   #uxToast{
     width:calc(100vw - 18px);
     max-width:calc(100vw - 18px);
-    bottom:14px;
+    bottom:calc(10px + env(safe-area-inset-bottom));
     padding:10px;
+  }
+}
+
+@media (max-width: 420px){
+  header h1{font-size:24px}
+
+  header p{font-size:12px}
+
+  .card h2{font-size:18px}
+
+  .scroll-card{
+    height:330px;
+    max-height:330px;
+  }
+
+  .chat-message,
+  .mood-item,
+  .item-row{
+    gap:6px;
+    padding:8px;
+  }
+
+  #accountPanel{
+    width:calc(100vw - 14px);
+    max-width:calc(100vw - 14px);
+    padding:12px;
   }
 }
 
@@ -1708,7 +1774,7 @@ textarea:focus-visible{
 <script type="module">
   // 🔥 Firebase Imports
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
-import { initializeFirestore, persistentLocalCache, getFirestore, collection, addDoc, getDocs, serverTimestamp, deleteDoc, doc, updateDoc, setDoc, getDoc } 
+import { initializeFirestore, persistentLocalCache, getFirestore, collection, addDoc, getDocs, serverTimestamp, deleteDoc, doc, updateDoc, setDoc, getDoc, runTransaction } 
 from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 import { 
   getAuth,
@@ -2079,6 +2145,7 @@ async function clearAllAccountData() {
       loadWeeklyTargets(user.uid),
       loadRescueEvents(user.uid),
       loadHabitQuest(user.uid),
+      loadStartupUsageState(user.uid),
       loadStartupFeatureState(user.uid)
     ]);
 
@@ -2128,6 +2195,7 @@ try {
         loadWeeklyTargets(user.uid);
         loadRescueEvents(user.uid);
         loadHabitQuest(user.uid);
+        loadStartupUsageState(user.uid);
         loadStartupFeatureState(user.uid);
         loadWaterData(user.uid);
         loadSleepData(user.uid);
@@ -2185,6 +2253,7 @@ try {
         startupWeeklyReportCache = "";
         startupPlanGeneratedOnce = false;
         startupReportGeneratedOnce = false;
+        startupUsageState = getDefaultStartupUsageState();
         refreshStartupFeatures();
         if (weeklyRange) weeklyRange.innerText = "Last 7 days review";
         if (weeklyTargetsDisplay) weeklyTargetsDisplay.innerText = "Targets: Water -, Sleep -, Tasks -";
@@ -2938,6 +3007,8 @@ const WATER_MAX_GLASSES_PER_ENTRY = 10;
 const REMINDER_MAX_MINUTES = 1440;
 const REMINDER_MAX_TEXT_LENGTH = 140;
 const SLEEP_DAILY_LIMIT = 8;
+const STARTUP_PLAN_DAILY_LIMIT = 2;
+const STARTUP_REPORT_WEEKLY_LIMIT = 1;
 const MAX_REMINDER_ENTRIES = 500;
 const MAX_TASK_ENTRIES = 1500;
 const MAX_GRATITUDE_ENTRIES = 1200;
@@ -2966,6 +3037,13 @@ let uxToastTimer = null;
 let uxToastActionHandler = null;
 let pendingAiClearOperation = null;
 let pendingWaterClearOperation = null;
+let aiChatSubmitting = false;
+let reminderSubmitting = false;
+let taskSubmitting = false;
+let moodSubmitting = false;
+let waterSubmitting = false;
+let sleepSubmitting = false;
+let gratitudeSubmitting = false;
 
 function getDefaultStartupFeatureState() {
   return {};
@@ -2976,6 +3054,105 @@ let startupCurrentPlan = [];
 let startupWeeklyReportCache = "";
 let startupPlanGeneratedOnce = false;
 let startupReportGeneratedOnce = false;
+let startupUsageState = getDefaultStartupUsageState();
+
+function getStartupWeekKey(dateValue = getServerNowDate()) {
+  const date = toDateSafe(dateValue) || getServerNowDate();
+  const sunday = new Date(date);
+  sunday.setUTCHours(0, 0, 0, 0);
+  sunday.setUTCDate(sunday.getUTCDate() - sunday.getUTCDay());
+  return dateToKey(sunday) || getTodayKey();
+}
+
+function getDefaultStartupUsageState() {
+  return {
+    planDateKey: getTodayKey(),
+    planCount: 0,
+    reportWeekKey: getStartupWeekKey(),
+    reportCount: 0
+  };
+}
+
+function normalizeStartupUsageState(input) {
+  const source = input && typeof input === "object" ? input : {};
+  const normalized = {
+    planDateKey: String(source.planDateKey || getTodayKey()),
+    planCount: Math.max(0, Number(source.planCount) || 0),
+    reportWeekKey: String(source.reportWeekKey || getStartupWeekKey()),
+    reportCount: Math.max(0, Number(source.reportCount) || 0)
+  };
+
+  if (normalized.planDateKey !== getTodayKey()) {
+    normalized.planDateKey = getTodayKey();
+    normalized.planCount = 0;
+  }
+  if (normalized.reportWeekKey !== getStartupWeekKey()) {
+    normalized.reportWeekKey = getStartupWeekKey();
+    normalized.reportCount = 0;
+  }
+
+  return normalized;
+}
+
+async function saveStartupUsageState(userId) {
+  if (!userId) return;
+  try {
+    await setDoc(doc(db, "users", userId, "settings", "startupUsage"), {
+      ...startupUsageState,
+      updatedAt: serverTimestamp()
+    }, { merge: true });
+  } catch (err) {
+    notifyFirestoreError(err);
+  }
+}
+
+async function loadStartupUsageState(userId) {
+  startupUsageState = getDefaultStartupUsageState();
+  if (!userId) return;
+
+  let changed = false;
+  try {
+    const snapshot = await getDoc(doc(db, "users", userId, "settings", "startupUsage"));
+    if (snapshot.exists()) {
+      const raw = snapshot.data();
+      startupUsageState = normalizeStartupUsageState(raw);
+      changed = String(raw?.planDateKey || "") !== startupUsageState.planDateKey
+        || Number(raw?.planCount) !== startupUsageState.planCount
+        || String(raw?.reportWeekKey || "") !== startupUsageState.reportWeekKey
+        || Number(raw?.reportCount) !== startupUsageState.reportCount;
+    } else {
+      changed = true;
+    }
+  } catch (err) {
+    notifyFirestoreError(err);
+    return;
+  }
+
+  if (changed) await saveStartupUsageState(userId);
+  refreshStartupFeatures();
+}
+
+async function ensureStartupUsageCurrent(userId) {
+  if (!userId) return;
+  let changed = false;
+
+  const todayKey = getTodayKey();
+  const weekKey = getStartupWeekKey();
+
+  if (startupUsageState.planDateKey !== todayKey) {
+    startupUsageState.planDateKey = todayKey;
+    startupUsageState.planCount = 0;
+    changed = true;
+  }
+
+  if (startupUsageState.reportWeekKey !== weekKey) {
+    startupUsageState.reportWeekKey = weekKey;
+    startupUsageState.reportCount = 0;
+    changed = true;
+  }
+
+  if (changed) await saveStartupUsageState(userId);
+}
 
 const SUCCESS_CHEERS = [
   "Nice work — momentum is building.",
@@ -3135,7 +3312,7 @@ function updateLimitCountdownNote(noteEl) {
   const baseMessage = noteEl.dataset.baseMessage || "";
   if (!baseMessage) return;
   const remaining = getMillisecondsUntilNextMidnight();
-  noteEl.innerText = `${baseMessage}. Resets in ${formatCountdownClock(remaining)} (server time).`;
+  noteEl.innerText = `${baseMessage}. Resets in ${formatCountdownClock(remaining)} (server time). Come back tomorrow.`;
 }
 
 function ensureLimitCountdownTicker() {
@@ -4551,7 +4728,7 @@ async function loadDailyUsage(userId) {
   }
 }
 
-async function ensureDailyUsageCurrent(userId) {
+async function ensureDailyUsageCurrent(userId, options = {}) {
   await ensureServerClockCurrent(userId);
 
   if (!dailyUsageLoaded) {
@@ -4575,7 +4752,9 @@ async function ensureDailyUsageCurrent(userId) {
   updateSleepLimitUI();
   updateWaterLimitUI();
   updateGratitudeLimitUI();
-  await updateReminderLimitUI(userId);
+  if (!options.skipReminderRefresh) {
+    await updateReminderLimitUI(userId);
+  }
 }
 
 async function loadAiUsage(userId) {
@@ -4619,6 +4798,170 @@ async function ensureAiUsageCurrent(userId) {
     await saveAiUsage(userId);
   }
   updateAiLimitUI();
+}
+
+function getDailyUsageCountersFromRaw(rawData = {}, todayKey = getTodayKey()) {
+  const sameDay = String(rawData?.dateKey || "") === todayKey;
+  return {
+    dateKey: todayKey,
+    moodCount: sameDay ? Math.max(0, Number(rawData?.moodCount) || 0) : 0,
+    taskCount: sameDay ? Math.max(0, Number(rawData?.taskCount) || 0) : 0,
+    sleepCount: sameDay ? Math.max(0, Number(rawData?.sleepCount) || 0) : 0,
+    waterCount: sameDay ? Math.max(0, Number(rawData?.waterCount) || 0) : 0,
+    reminderCount: sameDay ? Math.max(0, Number(rawData?.reminderCount) || 0) : 0,
+    gratitudeCount: sameDay ? Math.max(0, Number(rawData?.gratitudeCount) || 0) : 0
+  };
+}
+
+function syncDailyUsageLocalsFromCounters(counters) {
+  dailyUsageDateKey = String(counters?.dateKey || getTodayKey());
+  moodDailyUsageCount = Math.max(0, Number(counters?.moodCount) || 0);
+  taskDailyUsageCount = Math.max(0, Number(counters?.taskCount) || 0);
+  sleepDailyUsageCount = Math.max(0, Number(counters?.sleepCount) || 0);
+  waterDailyUsageCount = Math.max(0, Number(counters?.waterCount) || 0);
+  reminderDailyUsageCount = Math.max(0, Number(counters?.reminderCount) || 0);
+  gratitudeDailyUsageCount = Math.max(0, Number(counters?.gratitudeCount) || 0);
+  dailyUsageLoaded = true;
+}
+
+async function reserveDailyQuota(userId, quotaField, limit) {
+  if (!userId || !quotaField || !Number.isFinite(limit)) {
+    return { ok: false, count: 0 };
+  }
+
+  const todayKey = getTodayKey();
+  const usageRef = doc(db, "users", userId, "settings", "dailyUsage");
+
+  try {
+    const result = await runTransaction(db, async (transaction) => {
+      const snapshot = await transaction.get(usageRef);
+      const counters = getDailyUsageCountersFromRaw(snapshot.exists() ? snapshot.data() : {}, todayKey);
+      const current = Math.max(0, Number(counters[quotaField]) || 0);
+      if (current >= limit) {
+        return { ok: false, counters, count: current };
+      }
+
+      counters[quotaField] = current + 1;
+      transaction.set(usageRef, {
+        ...counters,
+        updatedAt: serverTimestamp()
+      }, { merge: true });
+
+      return { ok: true, counters, count: counters[quotaField] };
+    });
+
+    if (result?.counters) syncDailyUsageLocalsFromCounters(result.counters);
+    return result || { ok: false, count: 0 };
+  } catch (err) {
+    notifyFirestoreError(err);
+    return { ok: false, count: 0, error: err };
+  }
+}
+
+async function rollbackDailyQuota(userId, quotaField) {
+  if (!userId || !quotaField) return;
+
+  const todayKey = getTodayKey();
+  const usageRef = doc(db, "users", userId, "settings", "dailyUsage");
+
+  try {
+    const result = await runTransaction(db, async (transaction) => {
+      const snapshot = await transaction.get(usageRef);
+      if (!snapshot.exists()) return null;
+
+      const counters = getDailyUsageCountersFromRaw(snapshot.data(), todayKey);
+      const current = Math.max(0, Number(counters[quotaField]) || 0);
+      if (current <= 0) return counters;
+
+      counters[quotaField] = current - 1;
+      transaction.set(usageRef, {
+        ...counters,
+        updatedAt: serverTimestamp()
+      }, { merge: true });
+
+      return counters;
+    });
+
+    if (result) syncDailyUsageLocalsFromCounters(result);
+  } catch (_) {}
+}
+
+async function reserveAiQuota(userId, limit) {
+  if (!userId || !Number.isFinite(limit)) return { ok: false, count: 0 };
+
+  const todayKey = getTodayKeyGMT();
+  const usageRef = doc(db, "users", userId, "settings", "aiUsage");
+
+  try {
+    const result = await runTransaction(db, async (transaction) => {
+      const snapshot = await transaction.get(usageRef);
+      const data = snapshot.exists() ? (snapshot.data() || {}) : {};
+      const storedDayKey = String(data.dateKeyLocal || data.dateKeyGMT || "");
+      let count = storedDayKey === todayKey ? Math.max(0, Number(data.count) || 0) : 0;
+
+      if (count >= limit) {
+        return { ok: false, count };
+      }
+
+      count += 1;
+      transaction.set(usageRef, {
+        dateKeyLocal: todayKey,
+        dateKeyGMT: todayKey,
+        count,
+        updatedAt: serverTimestamp()
+      }, { merge: true });
+
+      return { ok: true, count };
+    });
+
+    if (result) {
+      aiUsageDateKeyGMT = todayKey;
+      aiUsageCount = Math.max(0, Number(result.count) || 0);
+      aiUsageStateLoaded = true;
+      updateAiLimitUI();
+    }
+
+    return result || { ok: false, count: 0 };
+  } catch (err) {
+    notifyFirestoreError(err);
+    return { ok: false, count: 0, error: err };
+  }
+}
+
+async function rollbackAiQuota(userId) {
+  if (!userId) return;
+
+  const todayKey = getTodayKeyGMT();
+  const usageRef = doc(db, "users", userId, "settings", "aiUsage");
+
+  try {
+    const result = await runTransaction(db, async (transaction) => {
+      const snapshot = await transaction.get(usageRef);
+      if (!snapshot.exists()) return null;
+
+      const data = snapshot.data() || {};
+      const storedDayKey = String(data.dateKeyLocal || data.dateKeyGMT || "");
+      let count = storedDayKey === todayKey ? Math.max(0, Number(data.count) || 0) : 0;
+      if (count <= 0) return { count: 0 };
+
+      count -= 1;
+      transaction.set(usageRef, {
+        dateKeyLocal: todayKey,
+        dateKeyGMT: todayKey,
+        count,
+        updatedAt: serverTimestamp()
+      }, { merge: true });
+
+      return { count };
+    });
+
+    if (result) {
+      aiUsageDateKeyGMT = todayKey;
+      aiUsageCount = Math.max(0, Number(result.count) || 0);
+      aiUsageStateLoaded = true;
+      updateAiLimitUI();
+    }
+  } catch (_) {}
 }
 
 function startDailyChallengeWatcher() {
@@ -5365,20 +5708,41 @@ function refreshStartupFeatures() {
   renderStartupBehaviorMemory();
   if (startupRefreshPlanBtn) {
     startupRefreshPlanBtn.innerText = startupPlanGeneratedOnce ? "Regenerate Plan" : "Generate Plan";
+    const planLimited = startupUsageState.planCount >= STARTUP_PLAN_DAILY_LIMIT;
+    startupRefreshPlanBtn.disabled = planLimited;
+    startupRefreshPlanBtn.title = planLimited ? "Daily planner limit reached. Come back tomorrow." : "";
   }
   if (startupGenerateReportBtn) {
     startupGenerateReportBtn.innerText = startupReportGeneratedOnce ? "Regenerate Report" : "Generate Report";
+    const reportLimited = startupUsageState.reportCount >= STARTUP_REPORT_WEEKLY_LIMIT;
+    startupGenerateReportBtn.disabled = reportLimited;
+    startupGenerateReportBtn.title = reportLimited ? "Weekly startup report limit reached. Come back next week." : "";
   }
   if (startupWeeklyReportText && !startupWeeklyReportCache) {
     startupWeeklyReportText.innerHTML = "<li>No report generated yet.</li>";
   }
 }
 
-function refreshStartupPlan() {
+async function refreshStartupPlan() {
+  const user = auth.currentUser;
+  if (!user) {
+    showToast("Please sign in first.");
+    return;
+  }
+
+  await ensureStartupUsageCurrent(user.uid);
+  if (startupUsageState.planCount >= STARTUP_PLAN_DAILY_LIMIT) {
+    showToast(`Daily planner limit reached (${STARTUP_PLAN_DAILY_LIMIT}/day). Come back tomorrow.`);
+    refreshStartupFeatures();
+    return;
+  }
+
   startupPlanGeneratedOnce = true;
   startupCurrentPlan = buildStartupPlanItems();
+  startupUsageState.planCount += 1;
+  await saveStartupUsageState(user.uid);
   renderStartupPlan();
-  if (startupRefreshPlanBtn) startupRefreshPlanBtn.innerText = "Regenerate Plan";
+  refreshStartupFeatures();
 }
 
 async function applyStartupPlanAsTasks() {
@@ -5387,7 +5751,21 @@ async function applyStartupPlanAsTasks() {
     showToast("Please sign in first.");
     return;
   }
-  if (!startupCurrentPlan.length) startupCurrentPlan = buildStartupPlanItems();
+
+  if (!startupCurrentPlan.length) {
+    await ensureStartupUsageCurrent(user.uid);
+    if (startupUsageState.planCount >= STARTUP_PLAN_DAILY_LIMIT) {
+      showToast(`Daily planner limit reached (${STARTUP_PLAN_DAILY_LIMIT}/day). Come back tomorrow.`);
+      refreshStartupFeatures();
+      return;
+    }
+    startupPlanGeneratedOnce = true;
+    startupCurrentPlan = buildStartupPlanItems();
+    startupUsageState.planCount += 1;
+    await saveStartupUsageState(user.uid);
+    refreshStartupFeatures();
+  }
+
   for (let index = 0; index < startupCurrentPlan.length; index += 1) {
     const raw = startupCurrentPlan[index].trim();
     task.value = raw.length > 90 ? `${raw.slice(0, 87)}...` : raw;
@@ -5396,21 +5774,38 @@ async function applyStartupPlanAsTasks() {
   showToast("Startup plan added to tasks.");
 }
 
-function generateStartupWeeklyReport() {
+async function generateStartupWeeklyReport() {
+  const user = auth.currentUser;
+  if (!user) {
+    showToast("Please sign in first.");
+    return;
+  }
+
+  await ensureStartupUsageCurrent(user.uid);
+  if (startupUsageState.reportCount >= STARTUP_REPORT_WEEKLY_LIMIT) {
+    showToast(`Weekly startup report limit reached (${STARTUP_REPORT_WEEKLY_LIMIT}/week). Come back next week.`);
+    refreshStartupFeatures();
+    return;
+  }
+
   startupReportGeneratedOnce = true;
   startupWeeklyReportCache = buildStartupWeeklyReport();
+  startupUsageState.reportCount += 1;
+  await saveStartupUsageState(user.uid);
   if (startupWeeklyReportText) {
     startupWeeklyReportText.innerHTML = startupWeeklyReportCache
       .map((line) => `<li>${escapeHtml(line)}</li>`)
       .join("");
   }
   if (startupGenerateReportBtn) startupGenerateReportBtn.innerText = "Regenerate Report";
+  refreshStartupFeatures();
   showToast("Weekly report generated.");
 }
 
 async function copyStartupWeeklyReport() {
   if (!startupWeeklyReportCache) {
-    startupWeeklyReportCache = buildStartupWeeklyReport();
+    showToast("Generate weekly report first.");
+    return;
   }
   try {
     const reportText = ["NovaFix Weekly Report", ...startupWeeklyReportCache].map((line) => `- ${line}`).join("\n");
@@ -6374,7 +6769,7 @@ async function editChatMessage(chatId, fieldName, textNode, role) {
     const dailyLimit = getCurrentAiDailyLimit();
     if (aiUsageCount >= dailyLimit) {
       updateAiLimitUI();
-      alert(`Daily AI limit reached (${dailyLimit}/${dailyLimit}). Resets at 00:00 server time.`);
+      alert(`Daily AI limit reached (${dailyLimit}/${dailyLimit}). Resets at 00:00 server time. Come back tomorrow.`);
       return;
     }
   }
@@ -6546,6 +6941,7 @@ async function clearAiChats() {
 }
 
 async function aiChat(){
+  if (aiChatSubmitting) return;
   const input = aiInput.value.trim();
   if(!input) return;
   const user = auth.currentUser;
@@ -6554,32 +6950,49 @@ async function aiChat(){
     return;
   }
 
-  await ensureAiUsageCurrent(user.uid);
-  const dailyLimit = getCurrentAiDailyLimit();
-  if (aiUsageCount >= dailyLimit) {
-    renderChatMessage("ai", "Daily AI limit reached for now. You can continue after 00:00 server time.", false, null, null);
+  aiChatSubmitting = true;
+  if (aiTalkBtn) aiTalkBtn.disabled = true;
+
+  try {
+    await ensureAiUsageCurrent(user.uid);
+    const dailyLimit = getCurrentAiDailyLimit();
+    const quotaResult = await reserveAiQuota(user.uid, dailyLimit);
+    if (!quotaResult.ok) {
+      renderChatMessage("ai", "Daily AI limit reached for now. You can continue after 00:00 server time. Come back tomorrow.", false, null, null);
+      updateAiLimitUI();
+      aiInput.value = "";
+      return;
+    }
+
+    try {
+      const smart = await buildSmartAiResponse(input, user);
+      const response = smart.response;
+      const responseIsHtml = smart.isHtml;
+      rememberPrompt(input);
+
+      const chatId = await storeAiChat(user.uid, input, response, responseIsHtml);
+      if (!chatId) {
+        await rollbackAiQuota(user.uid);
+        return;
+      }
+
+      renderChatPair({
+        id: chatId,
+        userMessage: input,
+        aiResponse: response,
+        aiResponseIsHtml: responseIsHtml
+      });
+      updateAiLimitUI();
+      updateClearDataButtonState();
+      aiInput.value="";
+    } catch (err) {
+      await rollbackAiQuota(user.uid);
+      notifyFirestoreError(err);
+    }
+  } finally {
+    aiChatSubmitting = false;
     updateAiLimitUI();
-    aiInput.value = "";
-    return;
   }
-
-  const smart = await buildSmartAiResponse(input, user);
-  const response = smart.response;
-  const responseIsHtml = smart.isHtml;
-  rememberPrompt(input);
-
-  const chatId = await storeAiChat(user.uid, input, response, responseIsHtml);
-  renderChatPair({
-    id: chatId,
-    userMessage: input,
-    aiResponse: response,
-    aiResponseIsHtml: responseIsHtml
-  });
-  aiUsageCount += 1;
-  await saveAiUsage(user.uid);
-  updateAiLimitUI();
-  updateClearDataButtonState();
-  aiInput.value="";
 }
 
 // Reminders
@@ -6732,6 +7145,7 @@ async function loadReminders(userId) {
 }
 
 async function addReminder() {
+  if (reminderSubmitting) return;
   const user = auth.currentUser;
   if (!user) {
     showToast("Please sign in first.");
@@ -6752,46 +7166,45 @@ async function addReminder() {
     return;
   }
 
-  await ensureDailyUsageCurrent(user.uid);
+  reminderSubmitting = true;
+  if (reminderSetBtn) reminderSetBtn.disabled = true;
 
   try {
-    const existing = await getDocs(collection(db, "users", user.uid, "reminders"));
-    const todaysCount = Math.max(countTodayRemindersFromDocs(existing.docs), reminderDailyUsageCount);
+    await ensureDailyUsageCurrent(user.uid, { skipReminderRefresh: true });
 
-    if (todaysCount >= REMINDER_DAILY_LIMIT) {
-      showToast(`You’ve reached today’s reminder limit (${REMINDER_DAILY_LIMIT}/day).`);
+    const quotaResult = await reserveDailyQuota(user.uid, "reminderCount", REMINDER_DAILY_LIMIT);
+    if (!quotaResult.ok) {
+      showToast(`You’ve reached today’s reminder limit (${REMINDER_DAILY_LIMIT}/day). Come back tomorrow.`);
       await updateReminderLimitUI(user.uid);
       return;
     }
-  } catch (err) {
-    notifyFirestoreError(err);
-    return;
-  }
 
-  const targetAtMs = getServerNowDate().getTime() + (m * 60 * 1000);
+    const targetAtMs = getServerNowDate().getTime() + (m * 60 * 1000);
 
-  try {
-    const ref = await addDoc(collection(db, "users", user.uid, "reminders"), {
-      text: t,
-      minutes: m,
-      targetAtMs,
-      createdAt: serverTimestamp()
-    });
+    try {
+      const ref = await addDoc(collection(db, "users", user.uid, "reminders"), {
+        text: t,
+        minutes: m,
+        targetAtMs,
+        createdAt: serverTimestamp()
+      });
 
-    reminderDailyUsageCount += 1;
-    await saveDailyUsage(user.uid);
-
-    renderReminder({ id: ref.id, text: t, minutes: m, targetAtMs });
-    reminderText.value = "";
-    reminderMinutes.value = "";
-    showToast(`Reminder set. ${getRandomCheer()}`);
-    await trimCollectionToMaxEntries(user.uid, "reminders", MAX_REMINDER_ENTRIES, (entry) => {
-      return Number(entry.targetAtMs) || toDateSafe(entry.createdAt)?.getTime?.() || 0;
-    });
+      renderReminder({ id: ref.id, text: t, minutes: m, targetAtMs });
+      reminderText.value = "";
+      reminderMinutes.value = "";
+      showToast(`Reminder set. ${getRandomCheer()}`);
+      await trimCollectionToMaxEntries(user.uid, "reminders", MAX_REMINDER_ENTRIES, (entry) => {
+        return Number(entry.targetAtMs) || toDateSafe(entry.createdAt)?.getTime?.() || 0;
+      });
+      await updateReminderLimitUI(user.uid);
+      updateClearDataButtonState();
+    } catch (err) {
+      await rollbackDailyQuota(user.uid, "reminderCount");
+      notifyFirestoreError(err);
+    }
+  } finally {
+    reminderSubmitting = false;
     await updateReminderLimitUI(user.uid);
-    updateClearDataButtonState();
-  } catch (err) {
-    notifyFirestoreError(err);
   }
 }
 
@@ -6916,6 +7329,7 @@ async function loadTasks(userId) {
 }
 
 async function addTask(){
+  if (taskSubmitting) return;
   const user = auth.currentUser;
   if (!user) {
     showToast("Please sign in first.");
@@ -6925,34 +7339,41 @@ async function addTask(){
   const t=task.value.trim();
   if(!t)return;
 
-  await ensureDailyUsageCurrent(user.uid);
-
-  const todaysCount = getTaskDailyCount();
-  if (todaysCount >= TASK_DAILY_LIMIT) {
-    showToast(`You’ve reached today’s task limit (${TASK_DAILY_LIMIT}/day).`);
-    updateTaskLimitUI();
-    return;
-  }
+  taskSubmitting = true;
+  if (taskAddBtn) taskAddBtn.disabled = true;
 
   try {
-    const ref = await addDoc(collection(db, "users", user.uid, "tasks"), {
-      text: t,
-      completed: false,
-      completedAt: null,
-      time: serverTimestamp()
-    });
-    const newTask = { id: ref.id, text: t, completed: false, completedAt: null, time: getServerNowDate() };
-    taskEntries.push(newTask);
-    taskDailyUsageCount += 1;
-    await saveDailyUsage(user.uid);
-    renderTask(newTask);
-    showToast(`Task added. ${getRandomCheer()}`);
-    updateInsights();
-    task.value="";
-    await trimCollectionToMaxEntries(user.uid, "tasks", MAX_TASK_ENTRIES, (entry) => toDateSafe(entry.time)?.getTime?.() || 0);
+    await ensureDailyUsageCurrent(user.uid, { skipReminderRefresh: true });
+
+    const quotaResult = await reserveDailyQuota(user.uid, "taskCount", TASK_DAILY_LIMIT);
+    if (!quotaResult.ok) {
+      showToast(`You’ve reached today’s task limit (${TASK_DAILY_LIMIT}/day). Come back tomorrow.`);
+      updateTaskLimitUI();
+      return;
+    }
+
+    try {
+      const ref = await addDoc(collection(db, "users", user.uid, "tasks"), {
+        text: t,
+        completed: false,
+        completedAt: null,
+        time: serverTimestamp()
+      });
+      const newTask = { id: ref.id, text: t, completed: false, completedAt: null, time: getServerNowDate() };
+      taskEntries.push(newTask);
+      renderTask(newTask);
+      showToast(`Task added. ${getRandomCheer()}`);
+      updateInsights();
+      task.value="";
+      await trimCollectionToMaxEntries(user.uid, "tasks", MAX_TASK_ENTRIES, (entry) => toDateSafe(entry.time)?.getTime?.() || 0);
+      updateTaskLimitUI();
+    } catch (err) {
+      await rollbackDailyQuota(user.uid, "taskCount");
+      notifyFirestoreError(err);
+    }
+  } finally {
+    taskSubmitting = false;
     updateTaskLimitUI();
-  } catch (err) {
-    notifyFirestoreError(err);
   }
 }
 
@@ -7035,6 +7456,7 @@ async function loadMoods(userId) {
 }
 
 async function saveMood() {
+  if (moodSubmitting) return;
   const user = auth.currentUser;
   if (!user) {
     showToast("Please sign in first.");
@@ -7047,36 +7469,44 @@ async function saveMood() {
     return;
   }
 
-  await ensureDailyUsageCurrent(user.uid);
-
-  if (getMoodDailyCount() >= MOOD_DAILY_LIMIT) {
-    showToast(`You’ve reached today’s mood log limit (${MOOD_DAILY_LIMIT}/day).`);
-    updateMoodLimitUI();
-    return;
-  }
+  moodSubmitting = true;
+  if (moodSaveBtn) moodSaveBtn.disabled = true;
 
   try {
-    const moodRef = await addDoc(
-      collection(db, "users", user.uid, "moods"),
-      {
-        mood: moodValue,
-        uid: user.uid,
-        email: user.email || null,
-        time: serverTimestamp()
-      }
-    );
+    await ensureDailyUsageCurrent(user.uid, { skipReminderRefresh: true });
 
-    moodHistory.push(moodValue);
-    moodDates.push(getServerNowDate());
-  moodDailyUsageCount += 1;
-  await saveDailyUsage(user.uid);
-    renderMoodLog({ id: moodRef.id, mood: moodValue, time: getServerNowDate() });
-    showToast(`Mood saved. ${getRandomCheer()}`);
-    updateInsights();
-    await trimCollectionToMaxEntries(user.uid, "moods", MAX_MOOD_ENTRIES, (entry) => toDateSafe(entry.time)?.getTime?.() || 0);
+    const quotaResult = await reserveDailyQuota(user.uid, "moodCount", MOOD_DAILY_LIMIT);
+    if (!quotaResult.ok) {
+      showToast(`You’ve reached today’s mood log limit (${MOOD_DAILY_LIMIT}/day). Come back tomorrow.`);
+      updateMoodLimitUI();
+      return;
+    }
+
+    try {
+      const moodRef = await addDoc(
+        collection(db, "users", user.uid, "moods"),
+        {
+          mood: moodValue,
+          uid: user.uid,
+          email: user.email || null,
+          time: serverTimestamp()
+        }
+      );
+
+      moodHistory.push(moodValue);
+      moodDates.push(getServerNowDate());
+      renderMoodLog({ id: moodRef.id, mood: moodValue, time: getServerNowDate() });
+      showToast(`Mood saved. ${getRandomCheer()}`);
+      updateInsights();
+      await trimCollectionToMaxEntries(user.uid, "moods", MAX_MOOD_ENTRIES, (entry) => toDateSafe(entry.time)?.getTime?.() || 0);
+      updateMoodLimitUI();
+    } catch (err) {
+      await rollbackDailyQuota(user.uid, "moodCount");
+      notifyFirestoreError(err);
+    }
+  } finally {
+    moodSubmitting = false;
     updateMoodLimitUI();
-  } catch (err) {
-    notifyFirestoreError(err);
   }
 }
 
@@ -7197,6 +7627,7 @@ async function loadWaterData(userId) {
 }
 
 async function saveWater() {
+  if (waterSubmitting) return;
   const user = auth.currentUser;
   if (!user) {
     showToast("Please sign in first.");
@@ -7210,31 +7641,40 @@ async function saveWater() {
     return;
   }
 
-  await ensureDailyUsageCurrent(user.uid);
-
-  if (getWaterDailyCount() >= WATER_DAILY_LIMIT) {
-    showToast(`You’ve reached today’s water log limit (${WATER_DAILY_LIMIT}/day).`);
-    updateWaterLimitUI();
-    return;
-  }
-
-  waterHistory.push(v);
+  waterSubmitting = true;
+  if (waterTrackBtn) waterTrackBtn.disabled = true;
 
   try {
-    await addDoc(collection(db, "users", user.uid, "waterIntake"), {
-      glasses: v,
-      time: serverTimestamp()
-    });
-    waterDailyUsageCount += 1;
-    await saveDailyUsage(user.uid);
-    waterDates.push(getServerNowDate());
-    updateWaterProgress();
-    waterInput.value = "";
-    showToast(`Water logged. ${getRandomCheer()}`);
-    await trimCollectionToMaxEntries(user.uid, "waterIntake", MAX_WATER_ENTRIES, (entry) => toDateSafe(entry.time)?.getTime?.() || 0);
+    await ensureDailyUsageCurrent(user.uid, { skipReminderRefresh: true });
+
+    const quotaResult = await reserveDailyQuota(user.uid, "waterCount", WATER_DAILY_LIMIT);
+    if (!quotaResult.ok) {
+      showToast(`You’ve reached today’s water log limit (${WATER_DAILY_LIMIT}/day). Come back tomorrow.`);
+      updateWaterLimitUI();
+      return;
+    }
+
+    waterHistory.push(v);
+
+    try {
+      await addDoc(collection(db, "users", user.uid, "waterIntake"), {
+        glasses: v,
+        time: serverTimestamp()
+      });
+      waterDates.push(getServerNowDate());
+      updateWaterProgress();
+      waterInput.value = "";
+      showToast(`Water logged. ${getRandomCheer()}`);
+      await trimCollectionToMaxEntries(user.uid, "waterIntake", MAX_WATER_ENTRIES, (entry) => toDateSafe(entry.time)?.getTime?.() || 0);
+      updateWaterLimitUI();
+    } catch (err) {
+      waterHistory.pop();
+      await rollbackDailyQuota(user.uid, "waterCount");
+      notifyFirestoreError(err);
+    }
+  } finally {
+    waterSubmitting = false;
     updateWaterLimitUI();
-  } catch (err) {
-    notifyFirestoreError(err);
   }
 }
 
@@ -7364,6 +7804,7 @@ async function loadSleepData(userId) {
 }
 
 async function saveSleep(){
+  if (sleepSubmitting) return;
   const user = auth.currentUser;
   if (!user) {
     showToast("Please sign in first.");
@@ -7373,32 +7814,42 @@ async function saveSleep(){
   const hours = +sleepInput.value;
   if (!hours) return;
 
-  await ensureDailyUsageCurrent(user.uid);
-
-  if (getSleepDailyCount() >= SLEEP_DAILY_LIMIT) {
-    showToast(`You’ve reached today’s sleep log limit (${SLEEP_DAILY_LIMIT}/day).`);
-    updateSleepLimitUI();
-    return;
-  }
-
-  sleepHistory.push(hours);
-  sleepDates.push(getServerNowDate());
-  sleepResult.innerText = `${hours} hrs 💤`;
-  updateInsights();
+  sleepSubmitting = true;
+  if (sleepSaveBtn) sleepSaveBtn.disabled = true;
 
   try {
-    await addDoc(collection(db, "users", user.uid, "sleepLogs"), {
-      hours,
-      time: serverTimestamp()
-    });
-    sleepDailyUsageCount += 1;
-    await saveDailyUsage(user.uid);
-    sleepInput.value = "";
-    showToast(`Sleep logged. ${getRandomCheer()}`);
-    await trimCollectionToMaxEntries(user.uid, "sleepLogs", MAX_SLEEP_ENTRIES, (entry) => toDateSafe(entry.time)?.getTime?.() || 0);
+    await ensureDailyUsageCurrent(user.uid, { skipReminderRefresh: true });
+
+    const quotaResult = await reserveDailyQuota(user.uid, "sleepCount", SLEEP_DAILY_LIMIT);
+    if (!quotaResult.ok) {
+      showToast(`You’ve reached today’s sleep log limit (${SLEEP_DAILY_LIMIT}/day). Come back tomorrow.`);
+      updateSleepLimitUI();
+      return;
+    }
+
+    sleepHistory.push(hours);
+    sleepDates.push(getServerNowDate());
+    sleepResult.innerText = `${hours} hrs 💤`;
+    updateInsights();
+
+    try {
+      await addDoc(collection(db, "users", user.uid, "sleepLogs"), {
+        hours,
+        time: serverTimestamp()
+      });
+      sleepInput.value = "";
+      showToast(`Sleep logged. ${getRandomCheer()}`);
+      await trimCollectionToMaxEntries(user.uid, "sleepLogs", MAX_SLEEP_ENTRIES, (entry) => toDateSafe(entry.time)?.getTime?.() || 0);
+      updateSleepLimitUI();
+    } catch (err) {
+      sleepHistory.pop();
+      sleepDates.pop();
+      await rollbackDailyQuota(user.uid, "sleepCount");
+      notifyFirestoreError(err);
+    }
+  } finally {
+    sleepSubmitting = false;
     updateSleepLimitUI();
-  } catch (err) {
-    notifyFirestoreError(err);
   }
 }
 
@@ -7568,6 +8019,7 @@ async function loadGratitude(userId) {
 }
 
 async function saveGratitude(){
+  if (gratitudeSubmitting) return;
   const user = auth.currentUser;
   if (!user) {
     showToast("Please sign in first.");
@@ -7577,32 +8029,39 @@ async function saveGratitude(){
   const t=gratitudeInput.value.trim();
   if(!t)return;
 
-  await ensureDailyUsageCurrent(user.uid);
-
-  const todaysCount = getGratitudeDailyCount();
-  if (todaysCount >= GRATITUDE_DAILY_LIMIT) {
-    showToast(`You’ve reached today’s gratitude limit (${GRATITUDE_DAILY_LIMIT}/day).`);
-    updateGratitudeLimitUI();
-    return;
-  }
+  gratitudeSubmitting = true;
+  if (gratitudeSaveBtn) gratitudeSaveBtn.disabled = true;
 
   try {
-    const ref = await addDoc(collection(db, "users", user.uid, "gratitudeLogs"), {
-      text: t,
-      time: serverTimestamp()
-    });
-    const entry = { id: ref.id, text: t, time: getServerNowDate() };
-    gratitudeEntries.push(entry);
-    gratitudeDailyUsageCount += 1;
-    await saveDailyUsage(user.uid);
-    renderGratitude(entry);
-    showToast(`Gratitude saved. ${getRandomCheer()}`);
-    updateInsights();
-    gratitudeInput.value="";
-    await trimCollectionToMaxEntries(user.uid, "gratitudeLogs", MAX_GRATITUDE_ENTRIES, (entryItem) => toDateSafe(entryItem.time)?.getTime?.() || 0);
+    await ensureDailyUsageCurrent(user.uid);
+
+    const quotaResult = await reserveDailyQuota(user.uid, "gratitudeCount", GRATITUDE_DAILY_LIMIT);
+    if (!quotaResult.ok) {
+      showToast(`You’ve reached today’s gratitude limit (${GRATITUDE_DAILY_LIMIT}/day). Come back tomorrow.`);
+      updateGratitudeLimitUI();
+      return;
+    }
+
+    try {
+      const ref = await addDoc(collection(db, "users", user.uid, "gratitudeLogs"), {
+        text: t,
+        time: serverTimestamp()
+      });
+      const entry = { id: ref.id, text: t, time: getServerNowDate() };
+      gratitudeEntries.push(entry);
+      renderGratitude(entry);
+      showToast(`Gratitude saved. ${getRandomCheer()}`);
+      updateInsights();
+      gratitudeInput.value="";
+      await trimCollectionToMaxEntries(user.uid, "gratitudeLogs", MAX_GRATITUDE_ENTRIES, (entryItem) => toDateSafe(entryItem.time)?.getTime?.() || 0);
+      updateGratitudeLimitUI();
+    } catch (err) {
+        await rollbackDailyQuota(user.uid, "gratitudeCount");
+      notifyFirestoreError(err);
+    }
+  } finally {
+    gratitudeSubmitting = false;
     updateGratitudeLimitUI();
-  } catch (err) {
-    notifyFirestoreError(err);
   }
 }
 
