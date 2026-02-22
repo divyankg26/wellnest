@@ -478,14 +478,16 @@ button:active:not(:disabled){
   transform:translateY(0);
 }
 
-.dashboard button{
-  font-size:13px;
-  padding:8px 10px;
-}
+@media (min-width: 641px){
+  .dashboard button{
+    font-size:13px;
+    padding:8px 10px;
+  }
 
-.dashboard .chat-edit-btn{
-  font-size:12px;
-  padding:6px 10px;
+  .dashboard .chat-edit-btn{
+    font-size:12px;
+    padding:6px 10px;
+  }
 }
 
 button:disabled,
