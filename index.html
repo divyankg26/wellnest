@@ -21,6 +21,7 @@ html,body{
   height:100%;
   font-family:'Segoe UI',sans-serif;
   color:var(--text);
+  line-height:1.35;
 }
 
 body{
@@ -110,6 +111,126 @@ body{
 }
 .modal-content p {margin-top: 10px; font-size: 14px; cursor: pointer;}
 
+
+#welcomeGuideModal{
+  display:none;
+  position:fixed;
+  inset:0;
+  background:rgba(0,0,0,.72);
+  justify-content:center;
+  align-items:center;
+  z-index:10040;
+  padding:16px;
+}
+
+.welcome-guide-card{
+  width:min(560px, calc(100vw - 24px));
+  background:rgba(255,255,255,.16);
+  border:1px solid rgba(255,255,255,.26);
+  border-radius:18px;
+  backdrop-filter:blur(14px);
+  box-shadow:0 14px 36px rgba(0,0,0,.35);
+  padding:18px 18px 16px;
+}
+
+.welcome-guide-top{
+  display:flex;
+  justify-content:space-between;
+  align-items:center;
+  gap:10px;
+}
+
+.welcome-guide-title{
+  margin:0;
+  color:#fff;
+  font-size:22px;
+}
+
+.welcome-guide-step{
+  margin:0;
+  font-size:12px;
+  opacity:.9;
+  background:rgba(255,255,255,.14);
+  border:1px solid rgba(255,255,255,.25);
+  border-radius:999px;
+  padding:5px 10px;
+  white-space:nowrap;
+}
+
+.welcome-guide-body{
+  margin-top:12px;
+  padding:14px;
+  border-radius:12px;
+  background:rgba(255,255,255,.1);
+}
+
+.welcome-guide-body h3{
+  margin:0 0 8px;
+  color:#fff;
+  font-size:18px;
+}
+
+.welcome-guide-body p{
+  margin:0;
+  font-size:14px;
+  line-height:1.5;
+  opacity:.96;
+}
+
+.welcome-guide-tip{
+  margin-top:10px;
+  font-size:13px;
+  opacity:.95;
+  padding:10px;
+  border-radius:10px;
+  border:1px solid rgba(255,255,255,.2);
+  background:rgba(255,255,255,.09);
+}
+
+.welcome-guide-dots{
+  display:flex;
+  gap:7px;
+  margin-top:12px;
+}
+
+.welcome-guide-dot{
+  width:9px;
+  height:9px;
+  border-radius:999px;
+  background:rgba(255,255,255,.35);
+}
+
+.welcome-guide-dot.active{
+  background:linear-gradient(135deg,var(--primary),var(--accent));
+  box-shadow:0 0 10px rgba(255,255,255,.4);
+}
+
+.welcome-guide-actions{
+  margin-top:14px;
+  display:flex;
+  justify-content:space-between;
+  align-items:center;
+  gap:10px;
+}
+
+.welcome-guide-actions button{
+  border:none;
+  border-radius:10px;
+  padding:10px 14px;
+  font-weight:700;
+  cursor:pointer;
+}
+
+#guideSkipBtn{
+  background:rgba(255,255,255,.2);
+  color:#fff;
+}
+
+#guideNextBtn{
+  background:linear-gradient(135deg,var(--primary),var(--accent));
+  color:#fff;
+}
+
 /* HEADER */
 header{
   text-align:center;
@@ -120,8 +241,13 @@ header{
   box-shadow:0 12px 30px rgba(0,0,0,.3);
   position:relative;
 }
-header h1{margin:0;color:var(--primary)}
-header p{margin:6px 0 0}
+header h1{
+  margin:0;
+  color:var(--primary);
+  letter-spacing:.3px;
+  text-shadow:none;
+}
+header p{margin:8px 0 0;opacity:.94}
 #signOutBtn{
   width:100%;
   margin-top:8px;
@@ -161,21 +287,43 @@ header p{margin:6px 0 0}
   background:rgba(0,0,0,.35);
   border:1px solid rgba(255,255,255,.25);
   border-radius:14px;
-  padding:16px;
+  padding:18px;
   text-align:left;
   backdrop-filter:blur(12px);
+  box-shadow:0 14px 34px rgba(0,0,0,.32);
   display:none;
   z-index:10021;
+}
+
+.account-title{
+  margin:0 0 4px;
+  font-size:20px;
+  color:var(--primary);
+}
+
+.account-subtitle{
+  margin:0 0 12px;
+  font-size:13px;
+  opacity:.92;
 }
 
 .account-row{
   font-size:13px;
   margin:8px 0;
+  padding:10px 12px;
+  border-radius:12px;
+  border:1px solid rgba(255,255,255,.24);
+  background:rgba(255,255,255,.1);
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.12);
+  line-height:1.4;
   word-break:break-word;
 }
 
 .account-row b{
+  display:inline-block;
+  min-width:90px;
   margin-right:6px;
+  opacity:.95;
 }
 
 #clearDataBtn,
@@ -211,6 +359,23 @@ header p{margin:6px 0 0}
 .account-transfer-box .export-note{
   margin-top:8px;
   text-align:center;
+  line-height:1.35;
+}
+
+@media (max-width: 640px){
+  #accountPanel{
+    width:min(420px, calc(100vw - 20px));
+    max-width:calc(100vw - 20px);
+    padding:14px;
+  }
+
+  .account-transfer-box .export-actions{
+    flex-wrap:wrap;
+  }
+
+  .account-transfer-box .export-actions button{
+    width:100%;
+  }
 }
 
 /* DASHBOARD */
@@ -232,14 +397,38 @@ header p{margin:6px 0 0}
   display:flex;
   flex-direction:column;
   border:1px solid rgba(255,255,255,.25);
+  transform:translateZ(0);
+  transition:transform .34s cubic-bezier(.22,.61,.36,1), box-shadow .34s cubic-bezier(.22,.61,.36,1), border-color .34s cubic-bezier(.22,.61,.36,1);
+  will-change:transform;
 }
-.card h2{margin-top:0;color:var(--primary)}
+.card:hover{
+  transform:translateY(-4px) scale(1.012);
+  box-shadow:0 22px 46px rgba(0,0,0,.34);
+  border-color:rgba(255,255,255,.35);
+}
+.card h2{
+  margin-top:0;
+  color:var(--primary);
+  letter-spacing:.2px;
+  font-size:24px;
+  line-height:1.2;
+  font-weight:700;
+}
 
 .input-group{
   display:flex;
-  gap:8px;
+  column-gap:8px;
+  row-gap:10px;
   flex-wrap:wrap;
   margin-top:8px;
+}
+
+.card :is(input,select,textarea,button) + :is(input,select,textarea,button){
+  margin-top:10px;
+}
+
+.card .input-group :is(input,select,textarea,button) + :is(input,select,textarea,button){
+  margin-top:0;
 }
 
 input,select,textarea,button{
@@ -249,12 +438,43 @@ input,select,textarea,button{
   background:rgba(255,255,255,.22);
   color:var(--text);
   font-family:inherit;
+  font-size:14px;
+  line-height:1.35;
+}
+
+input,select,textarea{
+  border:1px solid rgba(255,255,255,.16);
+  transition:border-color .18s ease, background .18s ease;
+}
+
+input::placeholder,
+textarea::placeholder{
+  color:rgba(255,255,255,.85);
+}
+
+input:focus,
+select:focus,
+textarea:focus{
+  background:rgba(255,255,255,.28);
+  border-color:rgba(255,255,255,.45);
 }
 
 button{
   cursor:pointer;
   font-weight:bold;
   background:linear-gradient(135deg,var(--primary),var(--accent));
+  transition:transform .16s ease, filter .16s ease, box-shadow .16s ease;
+  letter-spacing:.2px;
+}
+
+button:hover:not(:disabled){
+  transform:translateY(-1px);
+  filter:brightness(1.04);
+  box-shadow:0 10px 18px rgba(0,0,0,.2);
+}
+
+button:active:not(:disabled){
+  transform:translateY(0);
 }
 
 button:disabled,
@@ -266,11 +486,89 @@ textarea:disabled{
   cursor:not-allowed;
 }
 
+button:focus-visible,
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible{
+  outline:2px solid rgba(255,255,255,.92);
+  outline-offset:2px;
+}
+
 .limit-note{
   display:none;
   margin:8px 0 0;
   font-size:12px;
+  line-height:1.4;
   color:#ffd3d3;
+}
+
+.micro-tip{
+  margin:0 0 8px;
+  font-size:12px;
+  line-height:1.4;
+  opacity:.9;
+}
+
+.reset-hint{
+  margin:6px 0 0;
+  font-size:12px;
+  line-height:1.4;
+  opacity:.9;
+}
+
+.soft-note{
+  margin:8px 0 0;
+  font-size:12px;
+  line-height:1.4;
+  opacity:.92;
+}
+
+.status-loading,
+.status-empty{
+  margin-top:10px;
+  padding:12px;
+  border-radius:10px;
+  border:1px solid rgba(255,255,255,.2);
+  background:rgba(255,255,255,.08);
+  font-size:13px;
+  line-height:1.4;
+}
+
+.status-loading{ opacity:.88; }
+
+#uxToast{
+  position:fixed;
+  left:50%;
+  bottom:22px;
+  transform:translateX(-50%);
+  display:none;
+  align-items:center;
+  gap:10px;
+  max-width:min(560px, calc(100vw - 24px));
+  width:max-content;
+  padding:10px 12px;
+  border-radius:12px;
+  background:rgba(0,0,0,.55);
+  border:1px solid rgba(255,255,255,.26);
+  backdrop-filter:blur(10px);
+  z-index:10050;
+  box-shadow:0 12px 30px rgba(0,0,0,.3);
+}
+
+#uxToastText{
+  font-size:13px;
+  line-height:1.35;
+}
+
+#uxToastAction{
+  border:none;
+  border-radius:9px;
+  padding:7px 10px;
+  font-size:12px;
+  font-weight:700;
+  background:linear-gradient(135deg,var(--primary),var(--accent));
+  color:#fff;
+  cursor:pointer;
 }
 
 .limit-note.show{
@@ -281,10 +579,11 @@ textarea:disabled{
   flex-grow:1;
   min-height:0;
   overflow-y:scroll;
-  padding:8px;
+  padding:10px;
   border-radius:12px;
   background:rgba(0,0,0,.15);
   margin-top:8px;
+  border:1px solid rgba(255,255,255,.14);
 }
 
 #reminders,#taskList,#gratitudeLogs{
@@ -299,6 +598,12 @@ textarea:disabled{
 #reminders .item-text{
   line-height:1.4;
   padding-top:2px;
+}
+
+#reminderSetBtn{
+  width:100%;
+  display:block;
+  text-align:center;
 }
 
 #taskList .item-row,
@@ -357,9 +662,10 @@ textarea:disabled{
 .ai-header-row h2{margin:0}
 
 .ai-clear-btn{
-  padding:6px 10px;
-  border-radius:10px;
-  font-size:12px;
+  padding:10px;
+  border-radius:12px;
+  font-size:14px;
+  line-height:1.35;
 }
 
 .chat-message{
@@ -375,7 +681,7 @@ textarea:disabled{
 
 .chat-text{
   font-size:14px;
-  line-height:1.35;
+  line-height:1.45;
   word-break:break-word;
 }
 
@@ -399,6 +705,7 @@ textarea:disabled{
 
 .mood-item span{
   font-size:14px;
+  line-height:1.4;
 }
 
 .mood-remove{
@@ -576,6 +883,23 @@ textarea:disabled{
   backdrop-filter:blur(12px);
   box-shadow:0 12px 30px rgba(0,0,0,.35);
   z-index:10015;
+  transform:translateZ(0);
+  transition:transform .34s cubic-bezier(.22,.61,.36,1), box-shadow .34s cubic-bezier(.22,.61,.36,1), border-color .34s cubic-bezier(.22,.61,.36,1);
+  will-change:transform;
+}
+
+.crash-banner:hover{
+  transform:translateY(-4px) scale(1.012);
+  box-shadow:0 22px 46px rgba(0,0,0,.34);
+  border-color:rgba(255,255,255,.35);
+}
+
+@media (max-width: 768px){
+  .crash-banner{
+    left:50%;
+    right:auto;
+    transform:translateX(-50%);
+  }
 }
 
 .crash-banner-row{
@@ -647,12 +971,13 @@ textarea:disabled{
 .weekly-range{
   margin:0;
   opacity:.92;
-  font-size:13px;
+  font-size:14px;
+  line-height:1.4;
 }
 
 .weekly-section-title{
   margin:10px 0 6px;
-  font-size:13px;
+  font-size:14px;
   font-weight:700;
   opacity:.95;
 }
@@ -666,7 +991,7 @@ textarea:disabled{
 
 .weekly-target-box{
   margin-top:10px;
-  padding:10px;
+  padding:12px;
   border-radius:12px;
   border:1px solid rgba(255,255,255,.24);
   background:rgba(255,255,255,.08);
@@ -674,11 +999,70 @@ textarea:disabled{
 
 .weekly-target-text{
   margin:0;
-  font-size:13px;
+  font-size:14px;
+  line-height:1.4;
   opacity:.92;
 }
 
 .weekly-target-btn{margin-top:10px}
+
+.startup-list{
+  margin:8px 0 0;
+  padding-left:18px;
+}
+
+.startup-list li{margin:5px 0}
+
+.startup-list.compact li{margin:4px 0}
+
+.startup-actions-two{
+  display:flex;
+  flex-wrap:nowrap;
+  gap:8px;
+}
+
+.startup-actions-two button{
+  width:calc(50% - 4px);
+  min-width:0;
+  text-align:center;
+}
+
+.startup-mini{
+  margin:8px 0 0;
+  font-size:13px;
+  opacity:.92;
+  line-height:1.4;
+}
+
+.startup-pill{
+  display:inline-flex;
+  align-items:center;
+  gap:6px;
+  padding:6px 10px;
+  border-radius:999px;
+  border:1px solid rgba(255,255,255,.24);
+  background:rgba(255,255,255,.12);
+  font-size:12px;
+  margin:8px 0 0;
+}
+
+.startup-leaderboard{
+  margin-top:10px;
+  border:1px solid rgba(255,255,255,.2);
+  border-radius:12px;
+  background:rgba(0,0,0,.14);
+  padding:10px;
+}
+
+.startup-leaderboard-row{
+  display:flex;
+  justify-content:space-between;
+  gap:10px;
+  font-size:13px;
+  margin-bottom:6px;
+}
+
+.startup-leaderboard-row:last-child{margin-bottom:0}
 
 .challenge-streak{
   width:100%;
@@ -863,7 +1247,7 @@ textarea:disabled{
   border-radius:10px;
   background:rgba(255,255,255,.1);
 }
-.quest-text{font-size:14px;line-height:1.3;flex:1}
+.quest-text{font-size:14px;line-height:1.4;flex:1}
 .quest-done{opacity:.7;text-decoration:line-through}
 
 .burnout-risk{
@@ -879,6 +1263,88 @@ textarea:disabled{
 
 #gCost,#gMonths,#buffer{
   margin-top:8px;
+}
+
+@media (max-width: 900px){
+  .dashboard{
+    gap:16px;
+    padding:16px 14px 150px;
+  }
+
+  .card{
+    padding:16px;
+  }
+
+  .card:hover{
+    transform:none;
+  }
+
+  .crash-banner:hover{
+    transform:none;
+  }
+
+  .scroll-card{
+    height:400px;
+    max-height:400px;
+  }
+}
+
+@media (max-width: 640px){
+  header{
+    padding:22px 12px 20px;
+  }
+
+  #accountBtn{
+    right:12px;
+    top:18px;
+    padding:7px 12px;
+  }
+
+  header h1{
+    font-size:26px;
+  }
+
+  header p{
+    font-size:13px;
+  }
+
+  .dashboard{
+    grid-template-columns:1fr;
+    gap:14px;
+    padding:14px 12px 130px;
+  }
+
+  .card{
+    border-radius:16px;
+    padding:14px;
+  }
+
+  .card h2{
+    font-size:19px;
+    line-height:1.25;
+  }
+
+  .input-group{
+    gap:6px;
+  }
+
+  input,select,textarea,button{
+    font-size:14px;
+  }
+
+  #uxToast{
+    width:calc(100vw - 18px);
+    max-width:calc(100vw - 18px);
+    bottom:14px;
+    padding:10px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce){
+  *, *::before, *::after{
+    animation:none !important;
+    transition:none !important;
+  }
 }
 
 ::-webkit-scrollbar{width:6px}
@@ -910,6 +1376,25 @@ textarea:disabled{
   </div>
 </div>
 
+<div id="welcomeGuideModal">
+  <div class="welcome-guide-card">
+    <div class="welcome-guide-top">
+      <h2 class="welcome-guide-title">Welcome to NovaFix ✨</h2>
+      <p id="guideStepCounter" class="welcome-guide-step">Step 1/5</p>
+    </div>
+    <div class="welcome-guide-body">
+      <h3 id="guideStepTitle">Your Dashboard</h3>
+      <p id="guideStepText">Track habits, mood, hydration, sleep, and productivity from one place.</p>
+      <div id="guideStepTip" class="welcome-guide-tip">Tip: Complete logs daily to unlock better insights.</div>
+    </div>
+    <div id="guideDots" class="welcome-guide-dots"></div>
+    <div class="welcome-guide-actions">
+      <button id="guideSkipBtn" onclick="skipWelcomeGuide()">Skip Guide</button>
+      <button id="guideNextBtn" onclick="nextWelcomeGuideStep()">Next</button>
+    </div>
+  </div>
+</div>
+
 <header>
   <h1>NovaFix</h1>
   <p>Mind • Body • Money • Music • Productivity</p>
@@ -917,6 +1402,8 @@ textarea:disabled{
 </header>
 
 <div id="accountPanel">
+  <h3 class="account-title">👤 Account</h3>
+  <p class="account-subtitle">Manage your profile and data controls</p>
   <div class="account-row"><b>Username:</b> <span id="accountName">-</span></div>
   <div class="account-row"><b>Email:</b> <span id="accountEmail">-</span></div>
   <div class="account-row"><b>Verification:</b> <span id="accountVerifyStatus">-</span></div>
@@ -953,6 +1440,7 @@ textarea:disabled{
 <h2>🤖 AI Companion</h2>
 <button class="ai-clear-btn" onclick="clearAiChats()">Clear</button>
 </div>
+<p class="micro-tip">Tip: Ask short, clear prompts for better advice.</p>
 <div class="chat" id="chat"></div>
 <div class="input-group">
 <input id="aiInput" placeholder="Talk to AI">
@@ -964,11 +1452,13 @@ textarea:disabled{
 <!-- Reminders -->
 <div class="card scroll-card">
 <h2>⏰ Reminders</h2>
+<p class="micro-tip">Tip: Keep reminders specific, like “Drink water now”.</p>
 <div class="input-group">
 <input id="reminderText" placeholder="Reminder">
 <input type="number" id="reminderMinutes" placeholder="Minutes">
 <button id="reminderSetBtn" onclick="addReminder()">Set</button>
 </div>
+<p class="reset-hint">Daily limit resets at 00:00 server time.</p>
 <p id="reminderLimitError" class="limit-note"></p>
 <ul id="reminders"></ul>
 </div>
@@ -976,6 +1466,7 @@ textarea:disabled{
 <!-- Tasks -->
 <div class="card scroll-card">
 <h2>📊 Productivity</h2>
+<p class="micro-tip">Tip: Add tiny tasks first to build momentum.</p>
 <div class="input-group">
 <input id="task" placeholder="Task">
 <button id="taskAddBtn" onclick="addTask()">Add</button>
@@ -997,6 +1488,7 @@ textarea:disabled{
 <!-- Mood Tracker -->
 <div class="card scroll-card">
 <h2>🧘 Mood Tracker</h2>
+<p class="micro-tip">Tip: A quick mood log now improves your crash-risk forecast.</p>
 <select id="mood">
 <option>😊 Happy</option>
 <option>😐 Neutral</option>
@@ -1010,10 +1502,12 @@ textarea:disabled{
 <!-- Water -->
 <div class="card">
 <h2>💧 Water Intake</h2>
+<p class="micro-tip">Tip: Set your daily goal once each morning.</p>
 <input id="waterGoalInput" placeholder="Daily goal">
 <button onclick="setWaterGoal()">Set Goal</button>
 <input id="waterInput" placeholder="Glasses">
 <button id="waterTrackBtn" onclick="saveWater()">Track</button>
+<p class="reset-hint">Daily limit resets at 00:00 server time.</p>
 <p id="waterLimitError" class="limit-note"></p>
 <button id="waterClearBtn" class="water-clear-btn" onclick="clearWaterData()">Clear Intake + Goal</button>
 <p id="waterProgress"></p>
@@ -1022,6 +1516,7 @@ textarea:disabled{
 <!-- Sleep -->
 <div class="card">
 <h2>💤 Sleep</h2>
+<p class="micro-tip">Tip: Log sleep after waking for a consistent trend.</p>
 <input id="sleepInput" placeholder="Hours">
 <button id="sleepSaveBtn" onclick="saveSleep()">Save</button>
 <p id="sleepLimitError" class="limit-note"></p>
@@ -1052,6 +1547,7 @@ textarea:disabled{
 <!-- Gratitude Journal -->
 <div class="card scroll-card">
 <h2>🙏 Gratitude Journal</h2>
+<p class="micro-tip">Tip: 1 line is enough — consistency beats length.</p>
 <textarea id="gratitudeInput" rows="3"></textarea>
 <button id="gratitudeSaveBtn" onclick="saveGratitude()">Save</button>
 <p id="gratitudeLimitError" class="limit-note"></p>
@@ -1061,6 +1557,7 @@ textarea:disabled{
 <!-- Daily Challenge -->
 <div class="card">
 <h2>🏆 Daily Challenge</h2>
+<p class="micro-tip">Tip: Completing this boosts your overall wellness score.</p>
 <p id="dailyChallenge"></p>
 <button id="challengeCompleteBtn" onclick="completeChallenge()">Complete</button>
 <p id="challengeResult"></p>
@@ -1071,6 +1568,7 @@ textarea:disabled{
 <h2>⭐ Daily Wellness Score</h2>
 <div id="wellnessScore" class="wellness-badge">0/100</div>
 <p id="wellnessStatus" class="wellness-status">Needs Focus</p>
+<p id="wellnessReassurance" class="soft-note">Log one check-in to start momentum today.</p>
 <ul id="wellnessActions" class="wellness-actions">
   <li>Log your first check-in for today.</li>
   <li>Set your water target and drink one glass.</li>
@@ -1114,6 +1612,7 @@ textarea:disabled{
 <!-- Adaptive Habit Quest -->
 <div class="card quest-card" id="questCard">
 <h2>🎮 Adaptive Habit Quest</h2>
+<p class="micro-tip">Tip: Finish all 4 quests before midnight to lock streak progress.</p>
 <div class="quest-top">
   <div id="questXp" class="quest-stat">XP 0/100</div>
 </div>
@@ -1124,6 +1623,7 @@ textarea:disabled{
 </div>
 <div class="quest-progress"><div id="questProgressFill" class="quest-progress-fill"></div></div>
 <p id="questShield" class="burnout-sub">Streak shield: Inactive</p>
+<p id="questProgressHint" class="soft-note">Complete all 4 quests to secure today’s streak.</p>
 <ul id="questList" class="quest-list"></ul>
 </div>
 
@@ -1140,6 +1640,7 @@ textarea:disabled{
 <!-- Insights -->
 <div class="card" id="insightsCard">
 <h2>📈 Insights & Streaks</h2>
+<p class="micro-tip">Tip: Trends get sharper when you log daily at similar times.</p>
 
 <div class="insight-task-top">
   <small id="insightTaskTopLabel" class="insight-task-label">Tasks completed 0/0</small>
@@ -1167,6 +1668,41 @@ textarea:disabled{
     </svg>
   </div>
 </div>
+</div>
+
+<!-- Personalized Daily Plan -->
+<div class="card">
+<h2>🗂️ Personalized Daily Plan</h2>
+<p class="micro-tip">Top 3 priorities generated from your mood, sleep, hydration, and task trends.</p>
+<ul id="startupDailyPlanList" class="startup-list"></ul>
+<div class="input-group startup-actions-two">
+  <button id="startupRefreshPlanBtn" onclick="refreshStartupPlan()">Generate Plan</button>
+  <button id="startupApplyPlanBtn" onclick="applyStartupPlanAsTasks()">Apply as Tasks</button>
+</div>
+<p id="startupPlanMeta" class="startup-mini">Plan updates automatically when your logs change.</p>
+</div>
+
+<!-- Weekly Startup Report -->
+<div class="card">
+<h2>🧾 Weekly Startup Report</h2>
+<p class="micro-tip">One-click summary of wins, risks, and next actions for sharing.</p>
+<div class="input-group startup-actions-two">
+  <button id="startupGenerateReportBtn" onclick="generateStartupWeeklyReport()">Generate Report</button>
+  <button onclick="copyStartupWeeklyReport()">Copy Report</button>
+</div>
+<ul id="startupWeeklyReportText" class="startup-list compact"><li>No report generated yet.</li></ul>
+</div>
+
+<!-- Behavior Memory Graph -->
+<div class="card">
+<h2>🧬 Behavior Memory Graph</h2>
+<p class="micro-tip">Signals the patterns that most improve your next-day stability.</p>
+<ul id="startupBehaviorMemory" class="startup-list"></ul>
+</div>
+
+<div id="uxToast">
+  <span id="uxToastText"></span>
+  <button id="uxToastAction" style="display:none;"></button>
 </div>
 
 <script type="module">
@@ -1227,6 +1763,13 @@ const dashboard = document.querySelector(".dashboard");
 const accountBtn = document.getElementById("accountBtn");
 const accountOverlay = document.getElementById("accountOverlay");
 const accountPanel = document.getElementById("accountPanel");
+const welcomeGuideModal = document.getElementById("welcomeGuideModal");
+const guideStepCounter = document.getElementById("guideStepCounter");
+const guideStepTitle = document.getElementById("guideStepTitle");
+const guideStepText = document.getElementById("guideStepText");
+const guideStepTip = document.getElementById("guideStepTip");
+const guideDots = document.getElementById("guideDots");
+const guideNextBtn = document.getElementById("guideNextBtn");
 const crashAlertBanner = document.getElementById("crashAlertBanner");
 const crashBannerText = document.getElementById("crashBannerText");
 const crashRiskValue = document.getElementById("crashRiskValue");
@@ -1245,6 +1788,7 @@ const questWeekStreakLabels = document.getElementById("questWeekStreakLabels");
 const questWeekStreakCircles = document.getElementById("questWeekStreakCircles");
 const questProgressFill = document.getElementById("questProgressFill");
 const questShieldEl = document.getElementById("questShield");
+const questProgressHintEl = document.getElementById("questProgressHint");
 const questListEl = document.getElementById("questList");
 const burnoutRiskEl = document.getElementById("burnoutRisk");
 const burnoutWindowEl = document.getElementById("burnoutWindow");
@@ -1254,6 +1798,7 @@ const accountName = document.getElementById("accountName");
 const accountEmail = document.getElementById("accountEmail");
 const accountVerifyStatus = document.getElementById("accountVerifyStatus");
 const accountUid = document.getElementById("accountUid");
+const clearDataBtn = document.getElementById("clearDataBtn");
 const signOutBtn = document.getElementById("signOutBtn");
 const chat = document.getElementById("chat");
 const aiInput = document.getElementById("aiInput");
@@ -1299,6 +1844,7 @@ const challengeCompleteBtn = document.getElementById("challengeCompleteBtn");
 const importFileInput = document.getElementById("importFileInput");
 const wellnessScoreEl = document.getElementById("wellnessScore");
 const wellnessStatusEl = document.getElementById("wellnessStatus");
+const wellnessReassuranceEl = document.getElementById("wellnessReassurance");
 const wellnessActionsEl = document.getElementById("wellnessActions");
 const insightsCard = document.getElementById("insightsCard");
 const insightTaskTopLabel = document.getElementById("insightTaskTopLabel");
@@ -1312,6 +1858,15 @@ const insightBarLayer = document.getElementById("insightBarLayer");
 const insightBarLabelLayer = document.getElementById("insightBarLabelLayer");
 const insightGraphTrack = document.getElementById("insightGraphTrack");
 const insightGraphScroll = document.getElementById("insightGraphScroll");
+const uxToast = document.getElementById("uxToast");
+const uxToastText = document.getElementById("uxToastText");
+const uxToastAction = document.getElementById("uxToastAction");
+const startupDailyPlanList = document.getElementById("startupDailyPlanList");
+const startupPlanMeta = document.getElementById("startupPlanMeta");
+const startupRefreshPlanBtn = document.getElementById("startupRefreshPlanBtn");
+const startupWeeklyReportText = document.getElementById("startupWeeklyReportText");
+const startupGenerateReportBtn = document.getElementById("startupGenerateReportBtn");
+const startupBehaviorMemory = document.getElementById("startupBehaviorMemory");
 
 // ---------- SPLASH + AUTH CHECK ----------
 document.body.style.overflow = "hidden";
@@ -1348,6 +1903,10 @@ function updateAccountPanel(user) {
     if (accountEmail) accountEmail.innerText = "-";
     if (accountVerifyStatus) accountVerifyStatus.innerText = "-";
     if (accountUid) accountUid.innerText = "-";
+    if (clearDataBtn) {
+      clearDataBtn.disabled = true;
+      clearDataBtn.title = "No data to clear";
+    }
     return;
   }
 
@@ -1364,6 +1923,14 @@ document.addEventListener("click", (event) => {
   if (!clickedInside) closeAccountPanel();
 });
 
+document.addEventListener("keydown", (event) => {
+  if (event.key !== "Escape") return;
+  closeAccountPanel();
+  if (welcomeGuideModal && welcomeGuideModal.style.display === "flex") {
+    closeWelcomeGuide();
+  }
+});
+
 async function clearAllAccountData() {
   const user = auth.currentUser;
   if (!user) {
@@ -1371,7 +1938,7 @@ async function clearAllAccountData() {
     return;
   }
 
-  const warningOne = confirm("⚠️ This will permanently delete your NovaFix app data (tasks, mood, water, sleep, gratitude, reminders, AI chats, and insights). Daily limits for AI, mood, sleep, water, tasks, reminders, and gratitude will NOT be reset. Continue?");
+  const warningOne = confirm("⚠️ This will permanently delete your NovaFix app data (tasks, mood, water, sleep, gratitude, reminders, AI chats, and insights). All STREAKS will also be cleared. Daily limits for AI, mood, sleep, water, tasks, reminders, and gratitude will NOT be reset. Continue?");
   if (!warningOne) return;
 
   const warningTwo = confirm("Final warning: this cannot be undone. Your account will stay signed in, but all app data will be erased. Proceed?");
@@ -1430,6 +1997,7 @@ async function clearAllAccountData() {
     await deleteDoc(doc(db, "users", user.uid, "settings", "dailyChallenge")).catch(() => {});
     await deleteDoc(doc(db, "users", user.uid, "settings", "weeklyTargets")).catch(() => {});
     await deleteDoc(doc(db, "users", user.uid, "settings", "habitQuest")).catch(() => {});
+    await deleteDoc(doc(db, "users", user.uid, "settings", "startupPack")).catch(() => {});
     await deleteDoc(doc(db, "users", user.uid, "insights", "current")).catch(() => {});
     await deleteDoc(doc(db, "users", user.uid, "insights", "barGraphs")).catch(() => {});
     persistedBarGraphs = null;
@@ -1510,8 +2078,11 @@ async function clearAllAccountData() {
       loadGratitude(user.uid),
       loadWeeklyTargets(user.uid),
       loadRescueEvents(user.uid),
-      loadHabitQuest(user.uid)
+      loadHabitQuest(user.uid),
+      loadStartupFeatureState(user.uid)
     ]);
+
+    updateClearDataButtonState();
 
     closeAccountPanel();
     alert("✅ All account data cleared. You are still signed in.");
@@ -1543,6 +2114,8 @@ try {
         closeAccountPanel();
         updateAccountPanel(user);
         signInModal.style.display = "none";
+        setInitialLoadingStates();
+        updateClearDataButtonState();
         await syncServerClock(user.uid);
         await loadPersistedBarGraphs(user.uid);
         loadDailyChallenge(user.uid);
@@ -1555,6 +2128,7 @@ try {
         loadWeeklyTargets(user.uid);
         loadRescueEvents(user.uid);
         loadHabitQuest(user.uid);
+        loadStartupFeatureState(user.uid);
         loadWaterData(user.uid);
         loadSleepData(user.uid);
         loadGratitude(user.uid);
@@ -1564,6 +2138,7 @@ try {
         startWeeklyGraphResetCountdown();
         scheduleWeeklyGraphReset(user.uid);
         scheduleWaterGoalReset(user.uid);
+        await maybeShowWelcomeGuide(user.uid);
       } else {
         stopDailyChallengeWatcher();
         clearDailyChallengeResetSchedule();
@@ -1605,6 +2180,12 @@ try {
         weeklyQuestUsedIds = [];
         questCompletedDateKeys = [];
         weeklyTargets = { waterGoal: 0, sleepTarget: 8, taskTarget: 5 };
+        startupFeatureState = getDefaultStartupFeatureState();
+        startupCurrentPlan = [];
+        startupWeeklyReportCache = "";
+        startupPlanGeneratedOnce = false;
+        startupReportGeneratedOnce = false;
+        refreshStartupFeatures();
         if (weeklyRange) weeklyRange.innerText = "Last 7 days review";
         if (weeklyTargetsDisplay) weeklyTargetsDisplay.innerText = "Targets: Water -, Sleep -, Tasks -";
         if (weeklyImproved) weeklyImproved.innerHTML = "";
@@ -1615,6 +2196,10 @@ try {
         if (questProgressFill) questProgressFill.style.width = "0%";
         if (questShieldEl) questShieldEl.innerText = "Streak shield: Inactive";
         if (questListEl) questListEl.innerHTML = "";
+        closeWelcomeGuide();
+        welcomeGuideStepIndex = 0;
+        welcomeGuideUserId = "";
+        welcomeGuideCheckedThisSession = false;
         if (burnoutRiskEl) burnoutRiskEl.innerText = "0/100";
         if (burnoutWindowEl) burnoutWindowEl.innerText = "Low Risk • Stable window";
         if (burnoutReasonEl) burnoutReasonEl.innerText = "Forecast appears stable right now.";
@@ -1646,6 +2231,7 @@ try {
         dailyUsageLoaded = false;
         waterGoalInput.value = "";
         resetAllLimitUIs();
+        updateClearDataButtonState();
       }
     }, 1000); // match your splash transition
   });
@@ -1801,6 +2387,37 @@ let authMode="signin";
 let verificationCooldownTimer = null;
 let verificationCooldownRemaining = 0;
 const VERIFICATION_AUTO_RESEND_WINDOW_MS = 10 * 60 * 1000;
+let welcomeGuideStepIndex = 0;
+let welcomeGuideUserId = "";
+let welcomeGuideCheckedThisSession = false;
+const WELCOME_GUIDE_VERSION = 1;
+const WELCOME_GUIDE_STEPS = [
+  {
+    title: "Dashboard Overview",
+    text: "Use the cards to log mood, water, sleep, reminders, tasks, gratitude, and more in one flow.",
+    tip: "Tip: Start with Mood, Water, and Sleep every day for the fastest progress gains."
+  },
+  {
+    title: "Daily Limits",
+    text: "Each tracker has a daily safety limit and reset timer to keep entries realistic and consistent.",
+    tip: "Tip: If a button is disabled, the countdown note shows when it resets."
+  },
+  {
+    title: "Habit Quest",
+    text: "You get 4 random quests each day. Complete all 4 to lock the streak day and activate your streak shield.",
+    tip: "Tip: Finish all quests before midnight server time to keep your streak momentum."
+  },
+  {
+    title: "Insights & Weekly Review",
+    text: "Your logs feed into weekly insight bars and AI coaching so you can spot patterns quickly.",
+    tip: "Tip: Use the Insights Next button to switch mood/water/sleep views."
+  },
+  {
+    title: "Account Controls",
+    text: "Use the Account button to export/import data, change password, or clear app data when needed.",
+    tip: "You’re all set — click Finish and start your first check-in."
+  }
+];
 
 function getVerificationSentStorageKey(email) {
   return `novafix_verification_sent_${String(email || "").toLowerCase()}`;
@@ -1908,6 +2525,107 @@ async function sendPasswordResetReliable(email) {
     } catch (fallbackErr) {
       return { ok: false, error: fallbackErr };
     }
+  }
+}
+
+function renderWelcomeGuideStep() {
+  if (!welcomeGuideModal || !guideStepCounter || !guideStepTitle || !guideStepText || !guideStepTip || !guideDots || !guideNextBtn) return;
+  const total = WELCOME_GUIDE_STEPS.length;
+  const safeIndex = Math.max(0, Math.min(total - 1, welcomeGuideStepIndex));
+  const current = WELCOME_GUIDE_STEPS[safeIndex];
+  guideStepCounter.innerText = `Step ${safeIndex + 1}/${total}`;
+  guideStepTitle.innerText = current.title;
+  guideStepText.innerText = current.text;
+  guideStepTip.innerText = current.tip;
+  guideNextBtn.innerText = safeIndex === total - 1 ? "Finish" : "Next";
+
+  guideDots.innerHTML = "";
+  for (let i = 0; i < total; i += 1) {
+    const dot = document.createElement("span");
+    dot.className = `welcome-guide-dot${i === safeIndex ? " active" : ""}`;
+    guideDots.appendChild(dot);
+  }
+}
+
+function openWelcomeGuide(userId = "") {
+  if (!welcomeGuideModal) return;
+  welcomeGuideUserId = String(userId || welcomeGuideUserId || "");
+  welcomeGuideStepIndex = 0;
+  renderWelcomeGuideStep();
+  welcomeGuideModal.style.display = "flex";
+}
+
+function closeWelcomeGuide() {
+  if (!welcomeGuideModal) return;
+  welcomeGuideModal.style.display = "none";
+}
+
+async function completeWelcomeGuide() {
+  const activeUserId = String(welcomeGuideUserId || auth.currentUser?.uid || "");
+  if (activeUserId) {
+    try {
+      await setDoc(doc(db, "users", activeUserId, "settings", "onboarding"), {
+        welcomeGuideCompleted: true,
+        welcomeGuideVersion: WELCOME_GUIDE_VERSION,
+        welcomeGuideCompletedAt: serverTimestamp(),
+        updatedAt: serverTimestamp()
+      }, { merge: true });
+    } catch (_) {}
+  }
+  closeWelcomeGuide();
+}
+
+async function nextWelcomeGuideStep() {
+  const total = WELCOME_GUIDE_STEPS.length;
+  if (welcomeGuideStepIndex >= total - 1) {
+    await completeWelcomeGuide();
+    return;
+  }
+  welcomeGuideStepIndex += 1;
+  renderWelcomeGuideStep();
+}
+
+async function skipWelcomeGuide() {
+  await completeWelcomeGuide();
+}
+
+async function maybeShowWelcomeGuide(userId) {
+  const activeUserId = String(userId || "");
+  if (!activeUserId || !welcomeGuideModal || welcomeGuideCheckedThisSession) return;
+  welcomeGuideCheckedThisSession = true;
+  welcomeGuideUserId = activeUserId;
+
+  try {
+    const snap = await getDoc(doc(db, "users", activeUserId, "settings", "onboarding"));
+    const data = snap.exists() ? (snap.data() || {}) : {};
+    if (!data.welcomeGuideCompleted) {
+      const [waterSnap, weeklySnap] = await Promise.all([
+        getDoc(doc(db, "users", activeUserId, "settings", "water")),
+        getDoc(doc(db, "users", activeUserId, "settings", "weeklyTargets"))
+      ]);
+
+      if (!waterSnap.exists()) {
+        await setDoc(doc(db, "users", activeUserId, "settings", "water"), {
+          goal: 8,
+          goalDateKey: getTodayKey(),
+          lastResetDateKey: getTodayKey(),
+          updatedAt: serverTimestamp()
+        }, { merge: true });
+      }
+
+      if (!weeklySnap.exists()) {
+        await setDoc(doc(db, "users", activeUserId, "settings", "weeklyTargets"), {
+          waterGoal: 8,
+          sleepTarget: 8,
+          taskTarget: 5,
+          updatedAt: serverTimestamp()
+        }, { merge: true });
+      }
+
+      openWelcomeGuide(activeUserId);
+    }
+  } catch (_) {
+    openWelcomeGuide(activeUserId);
   }
 }
 
@@ -2120,20 +2838,20 @@ async function sendResetPasswordEmail() {
 async function sendAccountResetPasswordEmail() {
   const user = auth.currentUser;
   if (!user) {
-    alert("Please sign in first.");
+    showToast("Please sign in first.");
     return;
   }
 
   const email = (user.email || accountEmail?.innerText || "").trim().toLowerCase();
   if (!email || email === "-") {
-    alert("No email found for this account.");
+    showToast("No email found for this account.");
     return;
   }
 
   try {
     const methods = await fetchSignInMethodsForEmail(auth, email);
     if (methods.includes("google.com") && !methods.includes("password")) {
-      alert("This account uses Google sign-in. There is no password to reset.");
+      showToast("This account uses Google sign-in, so no password reset is needed.");
       return;
     }
 
@@ -2141,10 +2859,10 @@ async function sendAccountResetPasswordEmail() {
     if (!resetResult.ok) {
       throw resetResult.error;
     }
-    alert(`✅ Password reset email sent to ${email}. Check Inbox/Spam/Promotions.`);
+    showToast(`Password reset email sent to ${email}.`);
   } catch (err) {
     console.error("Account reset password error:", err?.code || err);
-    alert(err?.message || "Could not send reset email.");
+    showToast(err?.message || "Could not send reset email.");
   }
 }
 
@@ -2244,6 +2962,146 @@ let limitCountdownInterval = null;
 let lastFirestoreErrorAlertAt = 0;
 let persistedBarGraphs = null;
 const reminderIntervals = new Map();
+let uxToastTimer = null;
+let uxToastActionHandler = null;
+let pendingAiClearOperation = null;
+let pendingWaterClearOperation = null;
+
+function getDefaultStartupFeatureState() {
+  return {};
+}
+
+let startupFeatureState = getDefaultStartupFeatureState();
+let startupCurrentPlan = [];
+let startupWeeklyReportCache = "";
+let startupPlanGeneratedOnce = false;
+let startupReportGeneratedOnce = false;
+
+const SUCCESS_CHEERS = [
+  "Nice work — momentum is building.",
+  "Great consistency today.",
+  "Solid progress — keep going.",
+  "Good job, you’re on track.",
+  "Small step done, big win later."
+];
+
+function getRandomCheer() {
+  const index = Math.floor(Math.random() * SUCCESS_CHEERS.length);
+  return SUCCESS_CHEERS[index] || "Nice work.";
+}
+
+function showToast(message, options = {}) {
+  if (!uxToast || !uxToastText || !uxToastAction) return;
+
+  const duration = Math.max(1200, Number(options.duration) || 2600);
+  uxToastText.innerText = String(message || "");
+
+  if (uxToastTimer) {
+    clearTimeout(uxToastTimer);
+    uxToastTimer = null;
+  }
+
+  uxToastActionHandler = typeof options.onAction === "function" ? options.onAction : null;
+  if (options.actionLabel && uxToastActionHandler) {
+    uxToastAction.style.display = "inline-flex";
+    uxToastAction.innerText = String(options.actionLabel);
+  } else {
+    uxToastAction.style.display = "none";
+    uxToastAction.innerText = "";
+  }
+
+  uxToast.style.display = "flex";
+  uxToastTimer = setTimeout(() => {
+    uxToast.style.display = "none";
+    uxToastTimer = null;
+    uxToastActionHandler = null;
+  }, duration);
+}
+
+if (uxToastAction) {
+  uxToastAction.onclick = () => {
+    if (typeof uxToastActionHandler === "function") {
+      const handler = uxToastActionHandler;
+      uxToastActionHandler = null;
+      handler();
+    }
+    if (uxToast) uxToast.style.display = "none";
+    if (uxToastTimer) {
+      clearTimeout(uxToastTimer);
+      uxToastTimer = null;
+    }
+  };
+}
+
+function setEmptyState(containerEl, message) {
+  if (!containerEl) return;
+  containerEl.innerHTML = `<div class="status-empty">${message}</div>`;
+}
+
+function setLoadingState(containerEl, message = "Loading...") {
+  if (!containerEl) return;
+  containerEl.innerHTML = `<div class="status-loading">${message}</div>`;
+}
+
+function clearStatusState(containerEl) {
+  if (!containerEl) return;
+  const placeholders = containerEl.querySelectorAll(".status-empty, .status-loading");
+  placeholders.forEach((node) => node.remove());
+}
+
+function scheduleEmptyState(containerEl, itemSelector, message, delayMs = 220) {
+  if (!containerEl) return;
+  setTimeout(() => {
+    if (!containerEl || !containerEl.isConnected) return;
+    if (containerEl.querySelector(".status-loading")) return;
+    if (containerEl.querySelector(itemSelector)) return;
+    setEmptyState(containerEl, message);
+  }, Math.max(0, Number(delayMs) || 0));
+}
+
+function setInitialLoadingStates() {
+  setLoadingState(chat, "Loading your AI conversations...");
+  setLoadingState(reminders, "Loading reminders...");
+  setLoadingState(taskList, "Loading tasks...");
+  setLoadingState(moodLogs, "Loading mood logs...");
+  setLoadingState(gratitudeLogs, "Loading gratitude notes...");
+  if (questListEl) setLoadingState(questListEl, "Preparing today’s habit quests...");
+}
+
+function hasAnyClearableData() {
+  const hasAiChats = !!chat?.querySelector?.(".chat-message");
+  const hasReminders = !!reminders?.querySelector?.(".item-row");
+  const hasTasks = taskEntries.length > 0 || !!taskList?.querySelector?.(".item-row");
+  const hasMoods = moodHistory.length > 0 || !!moodLogs?.querySelector?.(".mood-item");
+  const hasWaterLogs = waterHistory.length > 0;
+  const hasSleepLogs = sleepHistory.length > 0;
+  const hasGratitudeLogs = gratitudeEntries.length > 0 || !!gratitudeLogs?.querySelector?.(".item-row");
+  const hasChallengeHistory = challengeDates.length > 0;
+  const hasRescueHistory = rescueEvents.length > 0;
+  const hasQuestProgress = questXp > 0 || questStreakCount > 0 || !!questShieldAvailable || (questCompletedDateKeys || []).length > 0;
+  const hasWaterGoal = (Number(waterGoal) || 0) > 0;
+
+  return !!(
+    hasAiChats ||
+    hasReminders ||
+    hasTasks ||
+    hasMoods ||
+    hasWaterLogs ||
+    hasSleepLogs ||
+    hasGratitudeLogs ||
+    hasChallengeHistory ||
+    hasRescueHistory ||
+    hasQuestProgress ||
+    hasWaterGoal
+  );
+}
+
+function updateClearDataButtonState() {
+  if (!clearDataBtn) return;
+  const hasData = hasAnyClearableData();
+  clearDataBtn.disabled = !hasData;
+  clearDataBtn.title = hasData ? "" : "No data to clear";
+}
 
 function notifyFirestoreError(err) {
   console.error("Firestore operation failed:", err);
@@ -2371,39 +3229,40 @@ function setRemoveButtonsDisabled(containerEl, disabled) {
 function updateMoodLimitUI() {
   const count = getMoodDailyCount();
   const limited = count >= MOOD_DAILY_LIMIT;
-  applyLimitState(moodLimitError, [mood, moodSaveBtn], limited, `Too many mood logs for today. Limit is ${MOOD_DAILY_LIMIT} per day. Resets at 00:00 server time.`);
+  applyLimitState(moodLimitError, [mood, moodSaveBtn], limited, `You’ve reached today’s mood log limit (${MOOD_DAILY_LIMIT}/day). Resets at 00:00 server time.`);
   setRemoveButtonsDisabled(moodLogs, limited);
 }
 
 function updateTaskLimitUI() {
   const count = getTaskDailyCount();
   const limited = count >= TASK_DAILY_LIMIT;
-  applyLimitState(taskLimitError, [task, taskAddBtn], limited, `Too many tasks for today. Limit is ${TASK_DAILY_LIMIT} per day. Resets at 00:00 server time.`);
+  applyLimitState(taskLimitError, [task, taskAddBtn], limited, `You’ve reached today’s task limit (${TASK_DAILY_LIMIT}/day). Resets at 00:00 server time.`);
   setRemoveButtonsDisabled(taskList, limited);
 }
 
 function updateGratitudeLimitUI() {
   const count = getGratitudeDailyCount();
   const limited = count >= GRATITUDE_DAILY_LIMIT;
-  applyLimitState(gratitudeLimitError, [gratitudeInput, gratitudeSaveBtn], limited, `Too many gratitude logs for today. Limit is ${GRATITUDE_DAILY_LIMIT} per day. Resets at 00:00 server time.`);
+  applyLimitState(gratitudeLimitError, [gratitudeInput, gratitudeSaveBtn], limited, `You’ve reached today’s gratitude limit (${GRATITUDE_DAILY_LIMIT}/day). Resets at 00:00 server time.`);
   setRemoveButtonsDisabled(gratitudeLogs, limited);
 }
 
 function updateWaterLimitUI() {
   const count = getWaterDailyCount();
   const limited = count >= WATER_DAILY_LIMIT;
-  applyLimitState(waterLimitError, [waterInput, waterTrackBtn], limited, `Too many water logs for today. Limit is ${WATER_DAILY_LIMIT} per day. Resets at 00:00 server time.`);
+  applyLimitState(waterLimitError, [waterInput, waterTrackBtn], limited, `You’ve reached today’s water log limit (${WATER_DAILY_LIMIT}/day). Resets at 00:00 server time.`);
 }
 
 function updateSleepLimitUI() {
   const count = getSleepDailyCount();
   const limited = count >= SLEEP_DAILY_LIMIT;
-  applyLimitState(sleepLimitError, [sleepInput, sleepSaveBtn], limited, `Too many sleep logs for today. Limit is ${SLEEP_DAILY_LIMIT} per day. Resets at 00:00 server time.`);
+  applyLimitState(sleepLimitError, [sleepInput, sleepSaveBtn], limited, `You’ve reached today’s sleep log limit (${SLEEP_DAILY_LIMIT}/day). Resets at 00:00 server time.`);
 }
 
 function updateAiLimitUI() {
-  const limited = aiUsageCount >= AI_DAILY_LIMIT;
-  applyLimitState(aiLimitError, [aiInput, aiTalkBtn], limited, `Daily AI limit reached (${AI_DAILY_LIMIT}/${AI_DAILY_LIMIT}). Resets at 00:00 server time.`);
+  const dailyLimit = getCurrentAiDailyLimit();
+  const limited = aiUsageCount >= dailyLimit;
+  applyLimitState(aiLimitError, [aiInput, aiTalkBtn], limited, `Daily AI limit reached (${dailyLimit}/${dailyLimit}). Resets at 00:00 server time.`);
 
   const editButtons = chat?.querySelectorAll?.(".chat-edit-btn") || [];
   editButtons.forEach((button) => {
@@ -2411,6 +3270,10 @@ function updateAiLimitUI() {
     if (limited) button.title = "AI daily limit reached";
     else button.removeAttribute("title");
   });
+}
+
+function getCurrentAiDailyLimit() {
+  return AI_DAILY_LIMIT;
 }
 
 async function updateReminderLimitUI(userId) {
@@ -2425,7 +3288,7 @@ async function updateReminderLimitUI(userId) {
     const count = Math.max(countTodayRemindersFromDocs(snapshot.docs), reminderDailyUsageCount);
 
     const limited = count >= REMINDER_DAILY_LIMIT;
-    applyLimitState(reminderLimitError, [reminderText, reminderMinutes, reminderSetBtn], limited, `Too many reminders for today. Limit is ${REMINDER_DAILY_LIMIT} per day. Resets at 00:00 server time.`);
+    applyLimitState(reminderLimitError, [reminderText, reminderMinutes, reminderSetBtn], limited, `You’ve reached today’s reminder limit (${REMINDER_DAILY_LIMIT}/day). Resets at 00:00 server time.`);
     setRemoveButtonsDisabled(reminders, limited);
   } catch (err) {
     notifyFirestoreError(err);
@@ -2906,12 +3769,13 @@ async function loadRescueEvents(userId) {
     notifyFirestoreError(err);
   }
   updateWeeklyReview();
+  updateClearDataButtonState();
 }
 
 async function setNextWeekTargets() {
   const user = auth.currentUser;
   if (!user) {
-    alert("Please sign in first.");
+    showToast("Please sign in first.");
     return;
   }
 
@@ -2942,7 +3806,7 @@ async function setNextWeekTargets() {
 
     updateWaterProgress();
     updateWeeklyReview();
-    alert(`✅ Targets set: Water ${waterGoalTarget}, Sleep ${sleepTarget}h, Tasks ${taskTarget}/day.`);
+    showToast(`Targets set: Water ${waterGoalTarget}, Sleep ${sleepTarget}h, Tasks ${taskTarget}/day.`);
   } catch (err) {
     notifyFirestoreError(err);
   }
@@ -3121,6 +3985,11 @@ function renderHabitQuestUI(animatedDateKey = "") {
   const progressPercent = allDoneToday ? 100 : Math.max(0, Math.min(100, questXp));
   if (questProgressFill) questProgressFill.style.width = `${progressPercent}%`;
   if (questShieldEl) questShieldEl.innerText = `Streak shield: ${questShieldAvailable ? "Active" : "Inactive"}`;
+  if (questProgressHintEl) {
+    questProgressHintEl.innerText = allDoneToday
+      ? "Perfect day complete — streak secured."
+      : `Progress ${progressPercent}% • complete all 4 quests to lock today’s streak.`;
+  }
   renderQuestWeekStreak(animatedDateKey);
 
   if (!questListEl) return;
@@ -4022,6 +4891,12 @@ function updateWellnessScore() {
   if (totalScore >= 80) status = "Excellent";
   else if (totalScore >= 60) status = "Good";
   wellnessStatusEl.innerText = status;
+  if (wellnessReassuranceEl) {
+    wellnessReassuranceEl.innerText =
+      totalScore >= 80 ? "You’re on track today — protect this rhythm." :
+      totalScore >= 60 ? "You’re moving well — one more check-in can lift this further." :
+      "A small action now can shift your whole day upward.";
+  }
 
   const actions = [];
   if (waterRatio < 1) {
@@ -4298,6 +5173,252 @@ function updateInsights() {
       }
     }
   });
+
+  refreshStartupFeatures();
+  updateClearDataButtonState();
+}
+
+function normalizeStartupFeatureState(input) {
+  return getDefaultStartupFeatureState();
+}
+
+async function saveStartupFeatureState(userId) {
+  if (!userId) return;
+  try {
+    await setDoc(doc(db, "users", userId, "settings", "startupPack"), {
+      ...startupFeatureState,
+      updatedAt: serverTimestamp()
+    }, { merge: true });
+  } catch (err) {
+    notifyFirestoreError(err);
+  }
+}
+
+async function loadStartupFeatureState(userId) {
+  startupFeatureState = getDefaultStartupFeatureState();
+  if (!userId) {
+    refreshStartupFeatures();
+    return;
+  }
+
+  try {
+    const snapshot = await getDoc(doc(db, "users", userId, "settings", "startupPack"));
+    if (snapshot.exists()) {
+      startupFeatureState = normalizeStartupFeatureState(snapshot.data());
+    }
+  } catch (err) {
+    notifyFirestoreError(err);
+  }
+
+  refreshStartupFeatures();
+}
+
+function buildStartupPlanItems() {
+  const snapshot = getWellnessSnapshot();
+  const trends = buildTrendSignals();
+  const board = buildPriorityBoard(snapshot, trends);
+  return board.slice(0, 3).map((entry) => entry.action);
+}
+
+function renderStartupPlan() {
+  if (!startupDailyPlanList) return;
+  if (!startupCurrentPlan.length) startupCurrentPlan = buildStartupPlanItems();
+  startupDailyPlanList.innerHTML = startupCurrentPlan.map((item) => `<li>${escapeHtml(item)}</li>`).join("");
+  if (startupPlanMeta) {
+    const trends = buildTrendSignals();
+    const signal = [
+      trends.taskDelta < 0 ? "Task trend dipped" : "Task trend stable",
+      trends.sleepDelta < 0 ? "Sleep needs protection" : "Sleep trend steady"
+    ].join(" • ");
+    startupPlanMeta.innerText = `Signal: ${signal}.`;
+  }
+}
+
+function buildStartupWeeklyReport() {
+  const snapshot = getWellnessSnapshot();
+  const trends = buildTrendSignals();
+  const plan = buildStartupPlanItems();
+  return [
+    `Date: ${getTodayKey()}`,
+    `Wellness Score: ${snapshot.score}/100`,
+    `Water: ${snapshot.waterToday}/${snapshot.todayGoal}`,
+    `Sleep: ${snapshot.sleepToday || 0}h`,
+    `Tasks: ${snapshot.doneTasks}/${snapshot.totalTasks}`,
+    `Trend Deltas: Tasks ${trends.taskDelta.toFixed(2)}, Sleep ${trends.sleepDelta.toFixed(2)}, Water ${trends.waterDelta.toFixed(2)}, Mood ${trends.moodDelta.toFixed(2)}`,
+    `Action 1: ${plan[0] || "Keep consistency with one key task."}`,
+    `Action 2: ${plan[1] || "Protect sleep and hydration today."}`,
+    `Action 3: ${plan[2] || "Close the day with gratitude + plan."}`
+  ];
+}
+
+function renderStartupBehaviorMemory() {
+  if (!startupBehaviorMemory) return;
+  const trends = buildTrendSignals();
+  const todayKey = getTodayKey();
+  const todayDate = dateKeyToDate(todayKey) || getServerNowDate();
+  const dayKeys = [];
+  for (let offset = 13; offset >= 0; offset -= 1) {
+    const day = new Date(todayDate);
+    day.setUTCDate(todayDate.getUTCDate() - offset);
+    const key = dateToKey(day);
+    if (key) dayKeys.push(key);
+  }
+
+  const moodByDay = new Map();
+  moodHistory.forEach((entry, index) => {
+    const key = dateToKey(moodDates[index]);
+    if (!key || !dayKeys.includes(key)) return;
+    const score = String(entry || "").includes("😊") ? 3 : String(entry || "").includes("😐") ? 2 : String(entry || "").includes("😔") ? 1 : 0;
+    if (score) moodByDay.set(key, score);
+  });
+
+  const waterByDay = new Map();
+  waterHistory.forEach((entry, index) => {
+    const key = dateToKey(waterDates[index]);
+    if (!key || !dayKeys.includes(key)) return;
+    waterByDay.set(key, (waterByDay.get(key) || 0) + (Number(entry) || 0));
+  });
+
+  const sleepByDay = new Map();
+  sleepHistory.forEach((entry, index) => {
+    const key = dateToKey(sleepDates[index]);
+    if (!key || !dayKeys.includes(key)) return;
+    sleepByDay.set(key, Number(entry) || 0);
+  });
+
+  const tasksDoneByDay = new Map();
+  taskEntries.forEach((entry) => {
+    if (!entry?.completed) return;
+    const key = dateToKey(entry.completedAt || entry.time);
+    if (!key || !dayKeys.includes(key)) return;
+    tasksDoneByDay.set(key, (tasksDoneByDay.get(key) || 0) + 1);
+  });
+
+  const memories = [];
+  const activeDays = dayKeys.filter((key) => moodByDay.has(key) || waterByDay.has(key) || sleepByDay.has(key) || tasksDoneByDay.has(key));
+  memories.push(`Analyzed ${activeDays.length} active day${activeDays.length === 1 ? "" : "s"} from your recent logs.`);
+
+  const sleepMoodPairs = dayKeys
+    .filter((key) => sleepByDay.has(key) && moodByDay.has(key))
+    .map((key) => ({ sleep: Number(sleepByDay.get(key)) || 0, mood: Number(moodByDay.get(key)) || 0 }));
+  if (sleepMoodPairs.length) {
+    const highSleepMood = safeAvg(sleepMoodPairs.filter((pair) => pair.sleep >= 7).map((pair) => pair.mood));
+    const lowSleepMood = safeAvg(sleepMoodPairs.filter((pair) => pair.sleep < 7).map((pair) => pair.mood));
+    if (highSleepMood > 0 || lowSleepMood > 0) {
+      if (highSleepMood > lowSleepMood && lowSleepMood > 0) {
+        memories.push(`Mood score is higher on 7h+ sleep days (${highSleepMood.toFixed(2)} vs ${lowSleepMood.toFixed(2)}).`);
+      } else if (highSleepMood > 0) {
+        memories.push(`7h+ sleep days correlate with stronger mood stability (avg mood score ${highSleepMood.toFixed(2)}).`);
+      } else {
+        memories.push(`Current sleep-mood baseline: avg mood score ${lowSleepMood.toFixed(2)} on sub-7h sleep days.`);
+      }
+    }
+  }
+
+  const hydrationTarget = waterGoal > 0 ? waterGoal : 8;
+  const waterTaskPairs = dayKeys
+    .filter((key) => waterByDay.has(key) || tasksDoneByDay.has(key))
+    .map((key) => ({
+      water: Number(waterByDay.get(key)) || 0,
+      tasks: Number(tasksDoneByDay.get(key)) || 0
+    }));
+  if (waterTaskPairs.length) {
+    const highHydrationTaskAvg = safeAvg(waterTaskPairs.filter((pair) => pair.water >= hydrationTarget).map((pair) => pair.tasks));
+    const lowHydrationTaskAvg = safeAvg(waterTaskPairs.filter((pair) => pair.water < hydrationTarget).map((pair) => pair.tasks));
+    if (highHydrationTaskAvg > 0 || lowHydrationTaskAvg > 0) {
+      memories.push(`Task completion on hydration-target days: ${highHydrationTaskAvg.toFixed(1)} vs ${lowHydrationTaskAvg.toFixed(1)} on lower-hydration days.`);
+    }
+  }
+
+  let bestKey = "";
+  let bestScore = -1;
+  dayKeys.forEach((key) => {
+    const moodScore = (Number(moodByDay.get(key)) || 0) * 20;
+    const sleepScore = Math.min(8, Number(sleepByDay.get(key)) || 0) * 8;
+    const waterScore = Math.min(1, (Number(waterByDay.get(key)) || 0) / hydrationTarget) * 20;
+    const taskScore = Math.min(4, Number(tasksDoneByDay.get(key)) || 0) * 6;
+    const score = moodScore + sleepScore + waterScore + taskScore;
+    if (score > bestScore) {
+      bestScore = score;
+      bestKey = key;
+    }
+  });
+  if (bestKey) {
+    memories.push(`Best pattern day (${bestKey}): sleep ${Number(sleepByDay.get(bestKey)) || 0}h, water ${Number(waterByDay.get(bestKey)) || 0}, tasks ${Number(tasksDoneByDay.get(bestKey)) || 0}.`);
+  }
+
+  if (trends.taskDelta > 0) memories.push("Recent task trend is rising — keep the same work blocks.");
+  if (trends.sleepDelta < 0) memories.push("Sleep trend dipped recently — protect bedtime consistency this week.");
+  if (trends.waterDelta < 0) memories.push("Hydration trend is softening — schedule fixed water checkpoints.");
+  if (trends.moodDelta < 0) memories.push("Mood trend dipped — add an early recovery break in the first half of the day.");
+
+  if (!activeDays.length) {
+    memories.length = 0;
+    memories.push("No recent logs detected yet — first memory will unlock after your next check-in.");
+  }
+
+  startupBehaviorMemory.innerHTML = memories.slice(0, 5).map((item) => `<li>${escapeHtml(item)}</li>`).join("");
+}
+
+function refreshStartupFeatures() {
+  renderStartupPlan();
+  renderStartupBehaviorMemory();
+  if (startupRefreshPlanBtn) {
+    startupRefreshPlanBtn.innerText = startupPlanGeneratedOnce ? "Regenerate Plan" : "Generate Plan";
+  }
+  if (startupGenerateReportBtn) {
+    startupGenerateReportBtn.innerText = startupReportGeneratedOnce ? "Regenerate Report" : "Generate Report";
+  }
+  if (startupWeeklyReportText && !startupWeeklyReportCache) {
+    startupWeeklyReportText.innerHTML = "<li>No report generated yet.</li>";
+  }
+}
+
+function refreshStartupPlan() {
+  startupPlanGeneratedOnce = true;
+  startupCurrentPlan = buildStartupPlanItems();
+  renderStartupPlan();
+  if (startupRefreshPlanBtn) startupRefreshPlanBtn.innerText = "Regenerate Plan";
+}
+
+async function applyStartupPlanAsTasks() {
+  const user = auth.currentUser;
+  if (!user) {
+    showToast("Please sign in first.");
+    return;
+  }
+  if (!startupCurrentPlan.length) startupCurrentPlan = buildStartupPlanItems();
+  for (let index = 0; index < startupCurrentPlan.length; index += 1) {
+    const raw = startupCurrentPlan[index].trim();
+    task.value = raw.length > 90 ? `${raw.slice(0, 87)}...` : raw;
+    await addTask();
+  }
+  showToast("Startup plan added to tasks.");
+}
+
+function generateStartupWeeklyReport() {
+  startupReportGeneratedOnce = true;
+  startupWeeklyReportCache = buildStartupWeeklyReport();
+  if (startupWeeklyReportText) {
+    startupWeeklyReportText.innerHTML = startupWeeklyReportCache
+      .map((line) => `<li>${escapeHtml(line)}</li>`)
+      .join("");
+  }
+  if (startupGenerateReportBtn) startupGenerateReportBtn.innerText = "Regenerate Report";
+  showToast("Weekly report generated.");
+}
+
+async function copyStartupWeeklyReport() {
+  if (!startupWeeklyReportCache) {
+    startupWeeklyReportCache = buildStartupWeeklyReport();
+  }
+  try {
+    const reportText = ["NovaFix Weekly Report", ...startupWeeklyReportCache].map((line) => `- ${line}`).join("\n");
+    await navigator.clipboard.writeText(reportText);
+    showToast("Weekly report copied.");
+  } catch (_) {
+    showToast("Could not copy report right now.");
+  }
 }
 
 // AI Companion
@@ -4442,6 +5563,9 @@ function classifyIntent(input) {
     { key: "identity", score: /who are you|what are you|your name|are you ai|are you real/.test(msg) ? 0.94 : 0 },
     { key: "analysis", score: /analyze|analysis|report|conclude|insight|summary|score/.test(msg) ? 0.93 : 0 },
     { key: "plan", score: /plan|routine|today|schedule|what should i do/.test(msg) ? 0.92 : 0 },
+    { key: "decision", score: /decide|choose|which should i|best option|priority|first/.test(msg) ? 0.925 : 0 },
+    { key: "why", score: /why|reason|because|explain|what caused/.test(msg) ? 0.915 : 0 },
+    { key: "optimize", score: /optimize|improve faster|maximize|best strategy|upgrade/.test(msg) ? 0.905 : 0 },
     { key: "stress", score: /stress|anxious|anxiety|overwhelm|panic|sad|depressed|down/.test(msg) ? 0.91 : 0 },
     { key: "sleep", score: /sleep|tired|exhausted|fatigue|insomnia/.test(msg) ? 0.9 : 0 },
     { key: "water", score: /water|hydrate|hydration|thirsty/.test(msg) ? 0.89 : 0 },
@@ -4616,6 +5740,134 @@ function buildDeepPlan(snapshot) {
   ];
 }
 
+function safeAvg(numbers) {
+  const source = Array.isArray(numbers) ? numbers.filter((value) => Number.isFinite(Number(value))) : [];
+  if (!source.length) return 0;
+  return source.reduce((sum, value) => sum + Number(value), 0) / source.length;
+}
+
+function buildTrendSignals() {
+  const todayKey = getTodayKey();
+  const last7Keys = [];
+  const anchor = dateKeyToDate(todayKey) || getServerNowDate();
+  anchor.setUTCHours(0, 0, 0, 0);
+  for (let index = 6; index >= 0; index -= 1) {
+    const date = new Date(anchor);
+    date.setUTCDate(anchor.getUTCDate() - index);
+    const key = dateToKey(date);
+    if (key) last7Keys.push(key);
+  }
+
+  const moodByDay = new Map();
+  moodHistory.forEach((entry, index) => {
+    const key = dateToKey(moodDates[index]);
+    if (!key || !last7Keys.includes(key)) return;
+    const score = String(entry || "").includes("😊") ? 3 : String(entry || "").includes("😐") ? 2 : String(entry || "").includes("😔") ? 1 : 0;
+    if (!score) return;
+    moodByDay.set(key, score);
+  });
+
+  const waterByDay = new Map();
+  waterHistory.forEach((entry, index) => {
+    const key = dateToKey(waterDates[index]);
+    if (!key || !last7Keys.includes(key)) return;
+    waterByDay.set(key, (waterByDay.get(key) || 0) + (Number(entry) || 0));
+  });
+
+  const sleepByDay = new Map();
+  sleepHistory.forEach((entry, index) => {
+    const key = dateToKey(sleepDates[index]);
+    if (!key || !last7Keys.includes(key)) return;
+    sleepByDay.set(key, Number(entry) || 0);
+  });
+
+  const tasksByDay = new Map();
+  taskEntries.forEach((entry) => {
+    if (!entry?.completed) return;
+    const key = dateToKey(entry.completedAt || entry.time);
+    if (!key || !last7Keys.includes(key)) return;
+    tasksByDay.set(key, (tasksByDay.get(key) || 0) + 1);
+  });
+
+  const firstHalf = last7Keys.slice(0, 3);
+  const secondHalf = last7Keys.slice(-3);
+  const avgFor = (map, keys) => safeAvg(keys.map((key) => Number(map.get(key)) || 0));
+
+  const moodDelta = avgFor(moodByDay, secondHalf) - avgFor(moodByDay, firstHalf);
+  const waterDelta = avgFor(waterByDay, secondHalf) - avgFor(waterByDay, firstHalf);
+  const sleepDelta = avgFor(sleepByDay, secondHalf) - avgFor(sleepByDay, firstHalf);
+  const taskDelta = avgFor(tasksByDay, secondHalf) - avgFor(tasksByDay, firstHalf);
+
+  return {
+    moodDelta,
+    waterDelta,
+    sleepDelta,
+    taskDelta,
+    moodAvg: avgFor(moodByDay, last7Keys),
+    waterAvg: avgFor(waterByDay, last7Keys),
+    sleepAvg: avgFor(sleepByDay, last7Keys),
+    taskAvg: avgFor(tasksByDay, last7Keys)
+  };
+}
+
+function buildPriorityBoard(snapshot, trends) {
+  const waterLeft = Math.max(0, snapshot.todayGoal - snapshot.waterToday);
+  const candidates = [
+    {
+      id: "task",
+      action: snapshot.pendingTasks > 0 ? "Finish one pending task in a 25-minute sprint." : "Create one meaningful task and start it now.",
+      impact: snapshot.pendingTasks > 0 ? 82 : 62,
+      urgency: snapshot.pendingTasks > 2 ? 22 : 10,
+      trendBoost: trends.taskDelta < 0 ? 10 : 0
+    },
+    {
+      id: "water",
+      action: waterLeft > 0 ? `Drink ${waterLeft} glass${waterLeft === 1 ? "" : "es"} to hit hydration target.` : "Hydration is on track — maintain steady intake.",
+      impact: waterLeft > 0 ? 74 : 44,
+      urgency: waterLeft >= 3 ? 18 : waterLeft > 0 ? 10 : 0,
+      trendBoost: trends.waterDelta < 0 ? 12 : 0
+    },
+    {
+      id: "sleep",
+      action: snapshot.sleepToday < 7 ? "Protect tonight’s sleep window (7-8h) and set wind-down alarm." : "Keep sleep quality stable with a fixed bedtime.",
+      impact: snapshot.sleepToday < 7 ? 79 : 46,
+      urgency: snapshot.sleepToday < 6 ? 22 : snapshot.sleepToday < 7 ? 12 : 0,
+      trendBoost: trends.sleepDelta < 0 ? 11 : 0
+    },
+    {
+      id: "mood",
+      action: !snapshot.moodToday ? "Log your mood now to improve your guidance accuracy." : "Run a 2-minute reset to keep emotional stability high.",
+      impact: !snapshot.moodToday ? 63 : 50,
+      urgency: !snapshot.moodToday ? 15 : 6,
+      trendBoost: trends.moodDelta < 0 ? 14 : 0
+    },
+    {
+      id: "gratitude",
+      action: !snapshot.gratitudeToday ? "Write one gratitude line to lock a positive close." : "Maintain gratitude consistency before day-end.",
+      impact: !snapshot.gratitudeToday ? 55 : 38,
+      urgency: !snapshot.gratitudeToday ? 8 : 3,
+      trendBoost: 0
+    }
+  ];
+
+  return candidates
+    .map((entry) => ({ ...entry, score: entry.impact + entry.urgency + entry.trendBoost }))
+    .sort((a, b) => b.score - a.score);
+}
+
+function buildWhySummary(snapshot, trends) {
+  const drivers = [];
+  if (snapshot.pendingTasks > 2) drivers.push("task load is currently high");
+  if (snapshot.sleepToday < 7) drivers.push("sleep is below recovery zone");
+  if (snapshot.waterToday < snapshot.todayGoal) drivers.push("hydration is below target");
+  if (!snapshot.moodToday) drivers.push("mood signal is missing for today");
+  if (trends.taskDelta < 0) drivers.push("recent task completion trend is softening");
+  if (trends.sleepDelta < 0) drivers.push("sleep trend dipped in the last few days");
+  if (trends.waterDelta < 0) drivers.push("hydration trend is dropping");
+  if (!drivers.length) drivers.push("your current inputs are relatively stable");
+  return drivers.slice(0, 4);
+}
+
 function getTodayWater() {
   const todayKey = getTodayKey();
   return waterHistory.reduce((sum, value, index) => {
@@ -4787,6 +6039,8 @@ async function tryAiAction(input, user) {
       await Promise.all(snapshot.docs.map((docSnap) => deleteDoc(docSnap.ref)));
       clearAllReminderTimers();
       reminders.innerHTML = "";
+      scheduleEmptyState(reminders, ".item-row", "No reminders set yet — add one small prompt for today.");
+      updateClearDataButtonState();
       return "✅ Cleared all reminders.";
     } catch (err) {
       notifyFirestoreError(err);
@@ -4822,6 +6076,8 @@ async function buildSmartAiResponse(input, user) {
   const knowledgeAnswer = buildKnowledgeAnswer(input);
   const compareRequest = parseCompareRequest(input);
   const modePreset = getAiModePreset();
+  const trendSignals = buildTrendSignals();
+  const priorityBoard = buildPriorityBoard(snapshot, trendSignals);
 
   aiSessionState.turnCount += 1;
   aiSessionState.lastUserMessage = input;
@@ -4925,7 +6181,35 @@ async function buildSmartAiResponse(input, user) {
     aiSessionState.lastAdvice = actions.slice(0, 3);
 
     return {
-      response: `📊 <b>Deep Wellness Analysis</b><br>⭐ Score: <b>${snapshot.score}/100</b><br>💧 Water: ${snapshot.waterToday}/${snapshot.todayGoal} (${Math.max(0, waterPct)}%)<br>💤 Sleep today: ${snapshot.sleepToday || 0} hrs<br>🧘 Mood: ${moodText}<br>📌 Tasks done: ${snapshot.doneTasks}/${snapshot.totalTasks} (${taskPct}%)<br>🙏 Gratitude today: ${snapshot.gratitudeToday ? "Yes" : "No"}<br><br><b>Best next moves</b><br>1) ${actions[0]}<br>2) ${actions[1]}<br>3) ${actions[2]}${recentContext ? `<br><br>🧠 Recent context: <i>${escapeHtml(recentContext)}</i>` : ""}`,
+      response: `📊 <b>Deep Wellness Analysis</b><br>⭐ Score: <b>${snapshot.score}/100</b><br>💧 Water: ${snapshot.waterToday}/${snapshot.todayGoal} (${Math.max(0, waterPct)}%)<br>💤 Sleep today: ${snapshot.sleepToday || 0} hrs<br>🧘 Mood: ${moodText}<br>📌 Tasks done: ${snapshot.doneTasks}/${snapshot.totalTasks} (${taskPct}%)<br>🙏 Gratitude today: ${snapshot.gratitudeToday ? "Yes" : "No"}<br><br><b>Priority ranking (smart order)</b><br>1) ${priorityBoard[0].action}<br>2) ${priorityBoard[1].action}<br>3) ${priorityBoard[2].action}<br><br><b>Best next moves</b><br>1) ${actions[0]}<br>2) ${actions[1]}<br>3) ${actions[2]}${recentContext ? `<br><br>🧠 Recent context: <i>${escapeHtml(recentContext)}</i>` : ""}`,
+      isHtml: true
+    };
+  }
+
+  if (intent.key === "decision") {
+    aiSessionState.lastIntent = "decision";
+    aiSessionState.lastAdvice = priorityBoard.slice(0, 3).map((entry) => entry.action);
+    return {
+      response: `🧭 <b>Best decision right now</b><br>Primary move: <b>${priorityBoard[0].action}</b><br><br><b>Why this wins</b><br>• Impact score: ${priorityBoard[0].impact}<br>• Urgency score: ${priorityBoard[0].urgency}<br>• Trend boost: ${priorityBoard[0].trendBoost}<br><br><b>Backup moves</b><br>2) ${priorityBoard[1].action}<br>3) ${priorityBoard[2].action}`,
+      isHtml: true
+    };
+  }
+
+  if (intent.key === "why") {
+    const reasons = buildWhySummary(snapshot, trendSignals);
+    aiSessionState.lastIntent = "why";
+    aiSessionState.lastAdvice = reasons;
+    return {
+      response: `🔍 <b>Why this is your current state</b><br>• ${reasons.join("<br>• ")}<br><br><b>Trend signals</b><br>• Mood delta: ${trendSignals.moodDelta.toFixed(2)}<br>• Water delta: ${trendSignals.waterDelta.toFixed(2)}<br>• Sleep delta: ${trendSignals.sleepDelta.toFixed(2)}h<br>• Task delta: ${trendSignals.taskDelta.toFixed(2)} completed/day<br><br><b>Most leverage move</b>: ${priorityBoard[0].action}`,
+      isHtml: true
+    };
+  }
+
+  if (intent.key === "optimize") {
+    aiSessionState.lastIntent = "optimize";
+    aiSessionState.lastAdvice = priorityBoard.slice(0, 4).map((entry) => entry.action);
+    return {
+      response: `⚙️ <b>Optimization plan (high leverage)</b><br>1) ${priorityBoard[0].action}<br>2) ${priorityBoard[1].action}<br>3) ${priorityBoard[2].action}<br>4) ${priorityBoard[3].action}<br><br><b>Execution rule</b>: finish step 1 fully before switching context.` ,
       isHtml: true
     };
   }
@@ -4947,7 +6231,7 @@ async function buildSmartAiResponse(input, user) {
     aiSessionState.lastIntent = "followup";
     const advice = aiSessionState.lastAdvice.length ? aiSessionState.lastAdvice : coachingMoves;
     return {
-      response: `Perfect. Next level plan:<br>1) ${advice[0]}<br>2) ${advice[1]}<br>3) ${advice[2]}<br><br>If you want execution, use direct commands and I’ll run them immediately.`,
+      response: `Perfect. Next level plan:<br>1) ${advice[0]}<br>2) ${advice[1]}<br>3) ${advice[2]}<br><br><b>If-then guardrail</b>: if you stall for 5+ minutes, switch to this immediate move — ${priorityBoard[0].action}<br><br>If you want execution, use direct commands and I’ll run them immediately.`,
       isHtml: true
     };
   }
@@ -5059,6 +6343,7 @@ function setChatText(textNode, text, isHtml) {
 }
 
 function renderChatMessage(role, messageText, isHtml, chatId, fieldName) {
+  clearStatusState(chat);
   const row = document.createElement("div");
   row.className = "chat-message";
 
@@ -5086,9 +6371,10 @@ async function editChatMessage(chatId, fieldName, textNode, role) {
   const user = auth.currentUser;
   if (user) {
     await ensureAiUsageCurrent(user.uid);
-    if (aiUsageCount >= AI_DAILY_LIMIT) {
+    const dailyLimit = getCurrentAiDailyLimit();
+    if (aiUsageCount >= dailyLimit) {
       updateAiLimitUI();
-      alert(`Daily AI limit reached (${AI_DAILY_LIMIT}/${AI_DAILY_LIMIT}). Resets at 00:00 server time.`);
+      alert(`Daily AI limit reached (${dailyLimit}/${dailyLimit}). Resets at 00:00 server time.`);
       return;
     }
   }
@@ -5172,7 +6458,11 @@ async function loadAiChats(userId) {
       if (entry.userMessage) rememberPrompt(entry.userMessage);
       renderChatPair(entry);
     });
+    if (!docs.length) {
+      setEmptyState(chat, "No AI chats yet — ask one question to get started.");
+    }
     updateAiLimitUI();
+    updateClearDataButtonState();
   } catch (err) {
     notifyFirestoreError(err);
   }
@@ -5203,7 +6493,20 @@ async function clearAiChats() {
 
   try {
     const snapshot = await getDocs(collection(db, "users", user.uid, "aiChats"));
-    await Promise.all(snapshot.docs.map((docSnap) => deleteDoc(docSnap.ref)));
+    if (!snapshot.docs.length) {
+      setEmptyState(chat, "No AI chats yet — ask one question to get started.");
+      showToast("There was nothing to clear.");
+      updateClearDataButtonState();
+      return;
+    }
+
+    if (pendingAiClearOperation?.timerId) {
+      clearTimeout(pendingAiClearOperation.timerId);
+      pendingAiClearOperation = null;
+    }
+
+    const docsToDelete = snapshot.docs.map((docSnap) => ({ id: docSnap.id, ref: docSnap.ref, data: docSnap.data() }));
+
     chat.innerHTML = "";
     aiRecentPrompts.length = 0;
     aiSessionState.lastIntent = "";
@@ -5211,6 +6514,32 @@ async function clearAiChats() {
     aiSessionState.lastUserMessage = "";
     aiSessionState.conversationSummary = "";
     aiSessionState.topicHistory.length = 0;
+
+    const finalizeDelete = async () => {
+      try {
+        await Promise.all(docsToDelete.map((entry) => deleteDoc(entry.ref)));
+      } catch (err) {
+        notifyFirestoreError(err);
+      }
+      pendingAiClearOperation = null;
+      scheduleEmptyState(chat, ".chat-message", "No AI chats yet — ask one question to get started.");
+      updateClearDataButtonState();
+    };
+
+    const timerId = setTimeout(finalizeDelete, 5000);
+    pendingAiClearOperation = { timerId };
+
+    showToast("AI chats cleared.", {
+      actionLabel: "Undo",
+      duration: 5000,
+      onAction: async () => {
+        if (pendingAiClearOperation?.timerId) clearTimeout(pendingAiClearOperation.timerId);
+        pendingAiClearOperation = null;
+        await loadAiChats(user.uid);
+        showToast("AI chats restored.");
+        updateClearDataButtonState();
+      }
+    });
   } catch (err) {
     notifyFirestoreError(err);
   }
@@ -5221,13 +6550,14 @@ async function aiChat(){
   if(!input) return;
   const user = auth.currentUser;
   if (!user) {
-    alert("Please sign in first.");
+    showToast("Please sign in first.");
     return;
   }
 
   await ensureAiUsageCurrent(user.uid);
-  if (aiUsageCount >= AI_DAILY_LIMIT) {
-    renderChatMessage("ai", "Daily AI limit reached. Resets at 00:00 server time.", false, null, null);
+  const dailyLimit = getCurrentAiDailyLimit();
+  if (aiUsageCount >= dailyLimit) {
+    renderChatMessage("ai", "Daily AI limit reached for now. You can continue after 00:00 server time.", false, null, null);
     updateAiLimitUI();
     aiInput.value = "";
     return;
@@ -5248,6 +6578,7 @@ async function aiChat(){
   aiUsageCount += 1;
   await saveAiUsage(user.uid);
   updateAiLimitUI();
+  updateClearDataButtonState();
   aiInput.value="";
 }
 
@@ -5309,6 +6640,7 @@ async function deleteReminderFromAi(userId, query) {
 }
 
 function renderReminder(entry) {
+  clearStatusState(reminders);
   const li = document.createElement("li");
   li.className = "item-row";
 
@@ -5337,6 +6669,8 @@ function renderReminder(entry) {
       }
     }
     li.remove();
+    scheduleEmptyState(reminders, ".item-row", "No reminders set yet — add one small prompt for today.");
+    updateClearDataButtonState();
 
     if (user) {
       await updateReminderLimitUI(user.uid);
@@ -5387,7 +6721,11 @@ async function loadReminders(userId) {
       .sort((a, b) => (Number(a.targetAtMs) || 0) - (Number(b.targetAtMs) || 0));
 
     docs.forEach((entry) => renderReminder(entry));
+    if (!docs.length) {
+      setEmptyState(reminders, "No reminders set yet — add one small prompt for today.");
+    }
     await updateReminderLimitUI(userId);
+    updateClearDataButtonState();
   } catch (err) {
     notifyFirestoreError(err);
   }
@@ -5396,7 +6734,7 @@ async function loadReminders(userId) {
 async function addReminder() {
   const user = auth.currentUser;
   if (!user) {
-    alert("Please sign in first.");
+    showToast("Please sign in first.");
     return;
   }
 
@@ -5405,12 +6743,12 @@ async function addReminder() {
   if (!t || m <= 0) return;
 
   if (t.length > REMINDER_MAX_TEXT_LENGTH) {
-    alert(`Reminder text is too long. Maximum is ${REMINDER_MAX_TEXT_LENGTH} characters.`);
+    showToast(`Reminder text is too long. Maximum is ${REMINDER_MAX_TEXT_LENGTH} characters.`);
     return;
   }
 
   if (m > REMINDER_MAX_MINUTES) {
-    alert(`Reminder time is too high. Maximum is ${REMINDER_MAX_MINUTES} minutes.`);
+    showToast(`Reminder time is too high. Maximum is ${REMINDER_MAX_MINUTES} minutes.`);
     return;
   }
 
@@ -5421,7 +6759,7 @@ async function addReminder() {
     const todaysCount = Math.max(countTodayRemindersFromDocs(existing.docs), reminderDailyUsageCount);
 
     if (todaysCount >= REMINDER_DAILY_LIMIT) {
-      alert(`Too many reminders for today. Limit is ${REMINDER_DAILY_LIMIT} per day. Resets at 00:00 server time.`);
+      showToast(`You’ve reached today’s reminder limit (${REMINDER_DAILY_LIMIT}/day).`);
       await updateReminderLimitUI(user.uid);
       return;
     }
@@ -5446,10 +6784,12 @@ async function addReminder() {
     renderReminder({ id: ref.id, text: t, minutes: m, targetAtMs });
     reminderText.value = "";
     reminderMinutes.value = "";
+    showToast(`Reminder set. ${getRandomCheer()}`);
     await trimCollectionToMaxEntries(user.uid, "reminders", MAX_REMINDER_ENTRIES, (entry) => {
       return Number(entry.targetAtMs) || toDateSafe(entry.createdAt)?.getTime?.() || 0;
     });
     await updateReminderLimitUI(user.uid);
+    updateClearDataButtonState();
   } catch (err) {
     notifyFirestoreError(err);
   }
@@ -5457,6 +6797,7 @@ async function addReminder() {
 
 // Tasks
 function renderTask(entry) {
+  clearStatusState(taskList);
   const li = document.createElement("li");
   li.className = "item-row";
   const span = document.createElement("span");
@@ -5522,6 +6863,7 @@ function renderTask(entry) {
       updateInsights();
       updateTaskLimitUI();
       li.remove();
+      scheduleEmptyState(taskList, ".item-row", "No tasks yet — add one quick win to begin.");
       return;
     }
     try {
@@ -5531,6 +6873,7 @@ function renderTask(entry) {
       updateInsights();
       updateTaskLimitUI();
       li.remove();
+      scheduleEmptyState(taskList, ".item-row", "No tasks yet — add one quick win to begin.");
     } catch (err) {
       notifyFirestoreError(err);
     }
@@ -5562,6 +6905,9 @@ async function loadTasks(userId) {
       taskEntries.push(normalized);
       renderTask(normalized);
     });
+    if (!docs.length) {
+      setEmptyState(taskList, "No tasks yet — add one quick win to begin.");
+    }
     updateTaskLimitUI();
     updateInsights();
   } catch (err) {
@@ -5572,7 +6918,7 @@ async function loadTasks(userId) {
 async function addTask(){
   const user = auth.currentUser;
   if (!user) {
-    alert("Please sign in first.");
+    showToast("Please sign in first.");
     return;
   }
 
@@ -5583,7 +6929,7 @@ async function addTask(){
 
   const todaysCount = getTaskDailyCount();
   if (todaysCount >= TASK_DAILY_LIMIT) {
-    alert(`Too many tasks for today. Limit is ${TASK_DAILY_LIMIT} per day. Resets at 00:00 server time.`);
+    showToast(`You’ve reached today’s task limit (${TASK_DAILY_LIMIT}/day).`);
     updateTaskLimitUI();
     return;
   }
@@ -5600,6 +6946,7 @@ async function addTask(){
     taskDailyUsageCount += 1;
     await saveDailyUsage(user.uid);
     renderTask(newTask);
+    showToast(`Task added. ${getRandomCheer()}`);
     updateInsights();
     task.value="";
     await trimCollectionToMaxEntries(user.uid, "tasks", MAX_TASK_ENTRIES, (entry) => toDateSafe(entry.time)?.getTime?.() || 0);
@@ -5623,6 +6970,7 @@ function calculateFinance(){
 
 // Mood
 function renderMoodLog(entry) {
+  clearStatusState(moodLogs);
   const moodRow = document.createElement("div");
   moodRow.className = "mood-item";
 
@@ -5649,6 +6997,7 @@ async function deleteMoodLog(moodId, moodElement, moodValue) {
     const moodIndex = moodHistory.findIndex((m) => m === moodValue);
     if (moodIndex >= 0) moodHistory.splice(moodIndex, 1);
     updateMoodLimitUI();
+    scheduleEmptyState(moodLogs, ".mood-item", "No mood logs yet — one check-in is enough to start.");
   } catch (err) {
     notifyFirestoreError(err);
   }
@@ -5675,6 +7024,9 @@ async function loadMoods(userId) {
       moodDates.push(moodTime);
       renderMoodLog(entry);
     });
+    if (!docs.length) {
+      setEmptyState(moodLogs, "No mood logs yet — one check-in is enough to start.");
+    }
     updateMoodLimitUI();
     updateInsights();
   } catch (err) {
@@ -5685,20 +7037,20 @@ async function loadMoods(userId) {
 async function saveMood() {
   const user = auth.currentUser;
   if (!user) {
-    alert("Please sign in first.");
+    showToast("Please sign in first.");
     return;
   }
 
   const moodValue = String(mood?.value || "").trim();
   if (!moodValue) {
-    alert("Please select a mood first.");
+    showToast("Please select a mood first.");
     return;
   }
 
   await ensureDailyUsageCurrent(user.uid);
 
   if (getMoodDailyCount() >= MOOD_DAILY_LIMIT) {
-    alert(`Too many mood logs for today. Limit is ${MOOD_DAILY_LIMIT} per day. Resets at 00:00 server time.`);
+    showToast(`You’ve reached today’s mood log limit (${MOOD_DAILY_LIMIT}/day).`);
     updateMoodLimitUI();
     return;
   }
@@ -5719,6 +7071,7 @@ async function saveMood() {
   moodDailyUsageCount += 1;
   await saveDailyUsage(user.uid);
     renderMoodLog({ id: moodRef.id, mood: moodValue, time: getServerNowDate() });
+    showToast(`Mood saved. ${getRandomCheer()}`);
     updateInsights();
     await trimCollectionToMaxEntries(user.uid, "moods", MAX_MOOD_ENTRIES, (entry) => toDateSafe(entry.time)?.getTime?.() || 0);
     updateMoodLimitUI();
@@ -5846,21 +7199,21 @@ async function loadWaterData(userId) {
 async function saveWater() {
   const user = auth.currentUser;
   if (!user) {
-    alert("Please sign in first.");
+    showToast("Please sign in first.");
     return;
   }
 
   const v = +waterInput.value;
   if (!v) return; // ignore empty or 0 input
   if (v > WATER_MAX_GLASSES_PER_ENTRY) {
-    alert(`❌ You can log a maximum of ${WATER_MAX_GLASSES_PER_ENTRY} glasses at once.`);
+    showToast(`You can log a maximum of ${WATER_MAX_GLASSES_PER_ENTRY} glasses at once.`);
     return;
   }
 
   await ensureDailyUsageCurrent(user.uid);
 
   if (getWaterDailyCount() >= WATER_DAILY_LIMIT) {
-    alert(`Too many water logs for today. Limit is ${WATER_DAILY_LIMIT} per day. Resets at 00:00 server time.`);
+    showToast(`You’ve reached today’s water log limit (${WATER_DAILY_LIMIT}/day).`);
     updateWaterLimitUI();
     return;
   }
@@ -5877,6 +7230,7 @@ async function saveWater() {
     waterDates.push(getServerNowDate());
     updateWaterProgress();
     waterInput.value = "";
+    showToast(`Water logged. ${getRandomCheer()}`);
     await trimCollectionToMaxEntries(user.uid, "waterIntake", MAX_WATER_ENTRIES, (entry) => toDateSafe(entry.time)?.getTime?.() || 0);
     updateWaterLimitUI();
   } catch (err) {
@@ -5887,12 +7241,21 @@ async function saveWater() {
 async function clearWaterData() {
   const user = auth.currentUser;
   if (!user) {
-    alert("Please sign in first.");
+    showToast("Please sign in first.");
     return;
   }
 
   const confirmed = confirm("Clear your current water intake and goal?");
   if (!confirmed) return;
+
+  if (pendingWaterClearOperation?.timerId) {
+    clearTimeout(pendingWaterClearOperation.timerId);
+    pendingWaterClearOperation = null;
+  }
+
+  const previousHistory = [...waterHistory];
+  const previousDates = [...waterDates];
+  const previousGoal = Number(waterGoal) || 0;
 
   waterHistory.length = 0;
   waterDates.length = 0;
@@ -5903,18 +7266,66 @@ async function clearWaterData() {
   updateWaterLimitUI();
   updateWaterClearButtonState();
 
-  try {
-    const intakeSnapshot = await getDocs(collection(db, "users", user.uid, "waterIntake"));
-    await Promise.all(intakeSnapshot.docs.map((docSnap) => deleteDoc(docSnap.ref)));
-    await setDoc(doc(db, "users", user.uid, "settings", "water"), {
-      goal: 0,
-      goalDateKey: getTodayKey(),
-      lastResetDateKey: getTodayKey()
-    }, { merge: true });
-    alert("✅ Water intake and goal cleared.");
-  } catch (err) {
-    notifyFirestoreError(err);
-  }
+  const finalizeDelete = async () => {
+    try {
+      const intakeSnapshot = await getDocs(collection(db, "users", user.uid, "waterIntake"));
+      await Promise.all(intakeSnapshot.docs.map((docSnap) => deleteDoc(docSnap.ref)));
+      await setDoc(doc(db, "users", user.uid, "settings", "water"), {
+        goal: 0,
+        goalDateKey: getTodayKey(),
+        lastResetDateKey: getTodayKey()
+      }, { merge: true });
+    } catch (err) {
+      notifyFirestoreError(err);
+    }
+    pendingWaterClearOperation = null;
+  };
+
+  pendingWaterClearOperation = {
+    timerId: setTimeout(finalizeDelete, 5000)
+  };
+
+  showToast("Water data cleared.", {
+    actionLabel: "Undo",
+    duration: 5000,
+    onAction: async () => {
+      if (pendingWaterClearOperation?.timerId) clearTimeout(pendingWaterClearOperation.timerId);
+      pendingWaterClearOperation = null;
+
+      waterHistory.length = 0;
+      waterDates.length = 0;
+      previousHistory.forEach((value) => waterHistory.push(value));
+      previousDates.forEach((value) => waterDates.push(value));
+      waterGoal = previousGoal;
+      waterGoalInput.value = previousGoal ? String(previousGoal) : "";
+      waterInput.value = "";
+      updateWaterProgress();
+      updateWaterLimitUI();
+      updateWaterClearButtonState();
+
+      if (previousHistory.length) {
+        try {
+          const intakeSnapshot = await getDocs(collection(db, "users", user.uid, "waterIntake"));
+          await Promise.all(intakeSnapshot.docs.map((docSnap) => deleteDoc(docSnap.ref)));
+          for (let i = 0; i < previousHistory.length; i += 1) {
+            await addDoc(collection(db, "users", user.uid, "waterIntake"), {
+              glasses: Number(previousHistory[i]) || 0,
+              time: previousDates[i] || getServerNowDate()
+            });
+          }
+          await setDoc(doc(db, "users", user.uid, "settings", "water"), {
+            goal: previousGoal,
+            goalDateKey: getTodayKey(),
+            lastResetDateKey: getTodayKey()
+          }, { merge: true });
+        } catch (err) {
+          notifyFirestoreError(err);
+        }
+      }
+
+      showToast("Water data restored.");
+    }
+  });
 }
 
 // Sleep
@@ -5955,7 +7366,7 @@ async function loadSleepData(userId) {
 async function saveSleep(){
   const user = auth.currentUser;
   if (!user) {
-    alert("Please sign in first.");
+    showToast("Please sign in first.");
     return;
   }
 
@@ -5965,7 +7376,7 @@ async function saveSleep(){
   await ensureDailyUsageCurrent(user.uid);
 
   if (getSleepDailyCount() >= SLEEP_DAILY_LIMIT) {
-    alert(`Too many sleep logs for today. Limit is ${SLEEP_DAILY_LIMIT} per day. Resets at 00:00 server time.`);
+    showToast(`You’ve reached today’s sleep log limit (${SLEEP_DAILY_LIMIT}/day).`);
     updateSleepLimitUI();
     return;
   }
@@ -5983,6 +7394,7 @@ async function saveSleep(){
     sleepDailyUsageCount += 1;
     await saveDailyUsage(user.uid);
     sleepInput.value = "";
+    showToast(`Sleep logged. ${getRandomCheer()}`);
     await trimCollectionToMaxEntries(user.uid, "sleepLogs", MAX_SLEEP_ENTRIES, (entry) => toDateSafe(entry.time)?.getTime?.() || 0);
     updateSleepLimitUI();
   } catch (err) {
@@ -5993,7 +7405,10 @@ async function saveSleep(){
 // Time Mirror
 function timeTraveller() {
   const goalText = futureTask.value.trim();
-  if (!goalText) return alert("Enter a task or goal.");
+  if (!goalText) {
+    showToast("Enter a goal to preview your future outcome.");
+    return;
+  }
 
   const snapshot = getWellnessSnapshot();
   const lower = goalText.toLowerCase();
@@ -6057,6 +7472,7 @@ newQuote();
 
 // Gratitude
 function renderGratitude(entry) {
+  clearStatusState(gratitudeLogs);
   const row = document.createElement("div");
   row.className = "item-row";
   const rawTime = entry.time?.toDate?.() ?? new Date(entry.time || getServerNowDate().getTime());
@@ -6101,6 +7517,7 @@ function renderGratitude(entry) {
       if (fallbackIndex >= 0) gratitudeEntries.splice(fallbackIndex, 1);
       updateInsights();
       row.remove();
+      scheduleEmptyState(gratitudeLogs, ".item-row", "No gratitude notes yet — add one small win from today.");
       return;
     }
 
@@ -6111,6 +7528,7 @@ function renderGratitude(entry) {
       updateInsights();
       updateGratitudeLimitUI();
       row.remove();
+      scheduleEmptyState(gratitudeLogs, ".item-row", "No gratitude notes yet — add one small win from today.");
     } catch (err) {
       notifyFirestoreError(err);
     }
@@ -6139,6 +7557,9 @@ async function loadGratitude(userId) {
       gratitudeEntries.push(entry);
       renderGratitude(entry);
     });
+    if (!docs.length) {
+      setEmptyState(gratitudeLogs, "No gratitude notes yet — add one small win from today.");
+    }
     updateGratitudeLimitUI();
     updateInsights();
   } catch (err) {
@@ -6149,7 +7570,7 @@ async function loadGratitude(userId) {
 async function saveGratitude(){
   const user = auth.currentUser;
   if (!user) {
-    alert("Please sign in first.");
+    showToast("Please sign in first.");
     return;
   }
 
@@ -6160,7 +7581,7 @@ async function saveGratitude(){
 
   const todaysCount = getGratitudeDailyCount();
   if (todaysCount >= GRATITUDE_DAILY_LIMIT) {
-    alert(`Too many gratitude logs for today. Limit is ${GRATITUDE_DAILY_LIMIT} per day. Resets at 00:00 server time.`);
+    showToast(`You’ve reached today’s gratitude limit (${GRATITUDE_DAILY_LIMIT}/day).`);
     updateGratitudeLimitUI();
     return;
   }
@@ -6175,6 +7596,7 @@ async function saveGratitude(){
     gratitudeDailyUsageCount += 1;
     await saveDailyUsage(user.uid);
     renderGratitude(entry);
+    showToast(`Gratitude saved. ${getRandomCheer()}`);
     updateInsights();
     gratitudeInput.value="";
     await trimCollectionToMaxEntries(user.uid, "gratitudeLogs", MAX_GRATITUDE_ENTRIES, (entryItem) => toDateSafe(entryItem.time)?.getTime?.() || 0);
@@ -6280,7 +7702,7 @@ function normalizeExportTime(value) {
 function startImportData() {
   const user = auth.currentUser;
   if (!user) {
-    alert("Please sign in first.");
+    showToast("Please sign in first.");
     return;
   }
   if (importFileInput) importFileInput.click();
@@ -6442,7 +7864,11 @@ async function importDataFileChange(event) {
       loadGratitude(user.uid)
     ]);
 
-    alert("✅ Data import complete.");
+    if (!moodHistory.length && !taskEntries.length && !gratitudeEntries.length) {
+      showToast("Import completed. Add your first check-in to start momentum.");
+    } else {
+      showToast("Data import complete.");
+    }
   } catch (err) {
     notifyFirestoreError(err);
   } finally {
@@ -6678,9 +8104,15 @@ Object.assign(window, {
   exportAllData,
   startImportData,
   importDataFileChange,
+  nextWelcomeGuideStep,
+  skipWelcomeGuide,
   handleGoogleAuth,
   sendResetPasswordEmail,
-  sendAccountResetPasswordEmail
+  sendAccountResetPasswordEmail,
+  refreshStartupPlan,
+  applyStartupPlanAsTasks,
+  generateStartupWeeklyReport,
+  copyStartupWeeklyReport
 });
 
 </script>
