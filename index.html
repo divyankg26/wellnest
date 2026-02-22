@@ -1270,30 +1270,6 @@ textarea:focus-visible{
   margin-top:8px;
 }
 
-@media (max-width: 900px){
-  .dashboard{
-    gap:16px;
-    padding:16px 14px 150px;
-  }
-
-  .card{
-    padding:16px;
-  }
-
-  .card:hover{
-    transform:none;
-  }
-
-  .crash-banner:hover{
-    transform:none;
-  }
-
-  .scroll-card{
-    height:400px;
-    max-height:400px;
-  }
-}
-
 @media (max-width: 640px){
   header{
     padding:20px 12px 18px;
@@ -1314,23 +1290,9 @@ textarea:focus-visible{
     font-size:13px;
   }
 
-  .dashboard{
-    grid-template-columns:1fr;
-    gap:14px;
-    padding:12px 10px calc(120px + env(safe-area-inset-bottom));
-  }
-
   input,select,textarea{
     font-size:14px;
     padding:9px;
-  }
-
-  .chat,#moodLogs,#gratitudeLogs,#reminders,#taskList,#timeMirror{
-    padding:9px;
-  }
-
-  #moodLogs{
-    min-height:92px;
   }
 
   #uxToastText{
